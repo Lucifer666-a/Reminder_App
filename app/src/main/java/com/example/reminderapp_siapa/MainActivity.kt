@@ -1,6 +1,7 @@
 package com.example.reminderapp_siapa
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -61,14 +62,37 @@ class MainActivity : ComponentActivity() {
         // Memasang 2 alarm otomatis (08:00 Pagi & 16:00 Sore)
         ReminderScheduler.setupDefaultAbsenAlarms(this)
 
+        // SharedPreferences untuk menyimpan nama secara permanen di HP
+        val sharedPref = getSharedPreferences("app_user_prefs", MODE_PRIVATE)
+        val savedUserName = sharedPref.getString("KEY_USER_NAME", "") ?: ""
+
         enableEdgeToEdge()
         setContent {
             Reminderapp_SIAPATheme {
-                var currentScreen by remember { mutableStateOf("login") }
+                // Jika sudah ada nama tersimpan, langsung ke layar "home"
+                var currentScreen by remember {
+                    mutableStateOf(if (savedUserName.isNotBlank()) "home" else "login")
+                }
+                var userName by remember {
+                    mutableStateOf(if (savedUserName.isNotBlank()) savedUserName else "User")
+                }
 
                 when (currentScreen) {
-                    "login" -> LoginScreen(onLoginSuccess = { currentScreen = "home" })
-                    "home" -> HomeScreen(onLookPresentClick = { currentScreen = "look_present" })
+                    "login" -> LoginScreen(
+                        onLoginSuccess = { inputName ->
+                            val finalName = if (inputName.isNotBlank()) inputName else "User"
+                            userName = finalName
+
+                            // Simpan permanen ke SharedPreferences
+                            sharedPref.edit().putString("KEY_USER_NAME", finalName).apply()
+
+                            currentScreen = "home"
+                        }
+                    )
+                    "home" -> HomeScreen(
+                        userName = userName,
+                        onLookPresentClick = { currentScreen = "look_present" }
+                    )
                     "look_present" -> LookPresentScreen(onBackClick = { currentScreen = "home" })
                 }
             }
@@ -78,10 +102,9 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: () -> Unit = {}
+    onLoginSuccess: (String) -> Unit = {}
 ) {
     var nama by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
 
     Box(
         modifier = Modifier
@@ -135,7 +158,7 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 32.dp)
-                .offset(y = (-280).dp)
+                .offset(y = (-350).dp)
                 .align(Alignment.BottomCenter),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -145,7 +168,7 @@ fun LoginScreen(
                 onValueChange = { nama = it },
                 placeholder = {
                     Text(
-                        text = "Masukkan Nama....",
+                        text = "Masukkan Nama User....",
                         color = Color(0xFF757575),
                         fontSize = 15.sp
                     )
@@ -165,41 +188,12 @@ fun LoginScreen(
                     .height(54.dp)
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Input Password
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                placeholder = {
-                    Text(
-                        text = "Masukkan Password....",
-                        color = Color(0xFF757575),
-                        fontSize = 15.sp
-                    )
-                },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                shape = CircleShape,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFFE2E2E2),
-                    unfocusedContainerColor = Color(0xFFE2E2E2),
-                    focusedBorderColor = Color(0xFF626060),
-                    unfocusedBorderColor = Color(0xFFFAF5F5),
-                    focusedTextColor = Color.Black,
-                    unfocusedTextColor = Color.Black
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp)
-            )
 
             Spacer(modifier = Modifier.height(28.dp))
 
             // Tombol Login
             Button(
-                onClick = { onLoginSuccess() },
+                onClick = { onLoginSuccess(nama) },
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF989B96)

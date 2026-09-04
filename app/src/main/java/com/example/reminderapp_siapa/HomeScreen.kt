@@ -37,6 +37,7 @@ import com.example.reminderapp_siapa.ui.theme.Reminderapp_SIAPATheme
 
 @Composable
 fun HomeScreen(
+    userName: String = "Nama",
     onLookPresentClick: () -> Unit = {}
 ) {
     Box(
@@ -93,17 +94,17 @@ fun HomeScreen(
                 .padding(horizontal = 20.dp)
                 .padding(top = 48.dp, bottom = 20.dp)
         ) {
-            // Title Header "Halo, Nama..."
+
             Text(
-                text = "Halo, Nama...",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Serif,
+                text = "Halo, $userName ",
+                fontSize = 26.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = FontFamily.SansSerif,
                 color = Color.White,
-                modifier = Modifier.padding(start = 8.dp, bottom = 20.dp)
+                modifier = Modifier.padding(start = 8.dp, bottom = 18.dp)
             )
 
-            // Outer Container Card (Bingkai Utama dengan Border Hitam)
+          
             Card(
                 shape = RoundedCornerShape(32.dp),
                 border = BorderStroke(1.5.dp, Color.Black),
