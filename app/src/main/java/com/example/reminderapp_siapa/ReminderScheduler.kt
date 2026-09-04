@@ -92,8 +92,8 @@ object ReminderScheduler {
         scheduleReminder(
             context = context,
             reminderId = 102,
-            hour = 10,
-            minute = 17,
+            hour = 16,
+            minute = 0,
             title = "Absen Pulang Sore",
             message = "Waktunya melakukan presensi/absen pulang sore (16:00)!"
         )

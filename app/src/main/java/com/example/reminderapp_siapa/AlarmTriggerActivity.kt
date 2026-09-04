@@ -106,7 +106,7 @@ fun AlarmTriggerPopUp(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF1E1E1E)),
+            .background(Color.Black.copy(alpha = 0.45f)), // Transparan gelap blur sehingga layar belakang tetap terlihat
         contentAlignment = Alignment.Center
     ) {
         // Pop Up Card Alarm
