@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.reminderapp_siapa.ui.theme.Reminderapp_SIAPATheme
 import java.time.LocalDate
+import java.time.LocalTime
 
 class AlarmTriggerActivity : ComponentActivity() {
 
@@ -73,10 +74,15 @@ class AlarmTriggerActivity : ComponentActivity() {
                     title = title,
                     message = message,
                     onSudahClick = {
-                        // Matikan suara alarm & simpan presensi
+                        // Matikan suara alarm & simpan presensi (pagi / sore tergantung jam saat ini)
                         AlarmSoundPlayer.stopSound()
                         val db = AttendanceDatabaseHelper(this)
-                        db.markAttendance(LocalDate.now(), "PRESENT")
+                        val currentHour = LocalTime.now().hour
+                        if (currentHour < 12) {
+                            db.markAttendancePagi(LocalDate.now())
+                        } else {
+                            db.markAttendanceSore(LocalDate.now())
+                        }
                         finish()
                     },
                     onBelumClick = {

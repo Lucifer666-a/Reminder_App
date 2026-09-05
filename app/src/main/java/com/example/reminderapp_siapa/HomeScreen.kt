@@ -30,6 +30,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -44,11 +45,26 @@ fun HomeScreen(
     onLookPresentClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val db = remember { AttendanceDatabaseHelper(context) }
-
-    // Cek apakah hari ini sudah absen di database lokal
+    val isPreview = LocalInspectionMode.current
     val today = remember { LocalDate.now() }
-    val isTodayAttended = remember { db.getAllAttendanceDates().contains(today) }
+
+    // Ambil jam absen dari database lokal (pagi dan sore)
+    val pagiTime = remember(isPreview, today) {
+        if (isPreview) null else {
+            val db = AttendanceDatabaseHelper(context)
+            db.getPagiAttendanceTime(today)
+        }
+    }
+
+    val soreTime = remember(isPreview, today) {
+        if (isPreview) null else {
+            val db = AttendanceDatabaseHelper(context)
+            db.getSoreAttendanceTime(today)
+        }
+    }
+
+    val isPagiAttended = pagiTime != null
+    val isSoreAttended = soreTime != null
 
     Box(
         modifier = Modifier
@@ -153,7 +169,7 @@ fun HomeScreen(
                                 .background(Color(0xFF6E6E6E), RoundedCornerShape(22.dp))
                                 .border(
                                     2.dp,
-                                    if (isTodayAttended) Color(0xFF39FF14) else Color(0xFF626060),
+                                    if (isPagiAttended) Color(0xFF39FF14) else Color(0xFF626060),
                                     RoundedCornerShape(22.dp)
                                 )
                                 .padding(14.dp)
@@ -168,21 +184,21 @@ fun HomeScreen(
                                     color = Color(0xFFD0D0D0)
                                 )
                                 Text(
-                                    text = if (isTodayAttended) "07:55 WIB" else "--:-- WIB",
+                                    text = pagiTime ?: "--:-- WIB",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
                                 )
                                 Surface(
                                     shape = CircleShape,
-                                    color = if (isTodayAttended) Color(0xFF39FF14).copy(alpha = 0.2f) else Color(0xFFFFC107).copy(alpha = 0.2f),
-                                    border = BorderStroke(1.dp, if (isTodayAttended) Color(0xFF39FF14) else Color(0xFFFFC107))
+                                    color = if (isPagiAttended) Color(0xFF39FF14).copy(alpha = 0.2f) else Color(0xFFFFC107).copy(alpha = 0.2f),
+                                    border = BorderStroke(1.dp, if (isPagiAttended) Color(0xFF39FF14) else Color(0xFFFFC107))
                                 ) {
                                     Text(
-                                        text = if (isTodayAttended) "✅ Sudah" else "⏳ Belum",
+                                        text = if (isPagiAttended) "✅ Sudah" else "⏳ Belum",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (isTodayAttended) Color(0xFF39FF14) else Color(0xFFFFC107),
+                                        color = if (isPagiAttended) Color(0xFF39FF14) else Color(0xFFFFC107),
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                     )
                                 }
@@ -195,7 +211,11 @@ fun HomeScreen(
                                 .weight(1f)
                                 .height(140.dp)
                                 .background(Color(0xFF6E6E6E), RoundedCornerShape(22.dp))
-                                .border(2.dp, Color(0xFF626060), RoundedCornerShape(22.dp))
+                                .border(
+                                    2.dp,
+                                    if (isSoreAttended) Color(0xFF39FF14) else Color(0xFF626060),
+                                    RoundedCornerShape(22.dp)
+                                )
                                 .padding(14.dp)
                         ) {
                             Column(
@@ -208,21 +228,21 @@ fun HomeScreen(
                                     color = Color(0xFFD0D0D0)
                                 )
                                 Text(
-                                    text = "--:-- WIB",
+                                    text = soreTime ?: "--:-- WIB",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
                                 )
                                 Surface(
                                     shape = CircleShape,
-                                    color = Color(0xFFFFC107).copy(alpha = 0.2f),
-                                    border = BorderStroke(1.dp, Color(0xFFFFC107))
+                                    color = if (isSoreAttended) Color(0xFF39FF14).copy(alpha = 0.2f) else Color(0xFFFFC107).copy(alpha = 0.2f),
+                                    border = BorderStroke(1.dp, if (isSoreAttended) Color(0xFF39FF14) else Color(0xFFFFC107))
                                 ) {
                                     Text(
-                                        text = "⏳ Belum",
+                                        text = if (isSoreAttended) "✅ Sudah" else "⏳ Belum",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFFFFC107),
+                                        color = if (isSoreAttended) Color(0xFF39FF14) else Color(0xFFFFC107),
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                     )
                                 }
