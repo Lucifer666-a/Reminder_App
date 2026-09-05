@@ -72,24 +72,28 @@ class AttendanceDatabaseHelper(context: Context) : SQLiteOpenHelper(
     // Ambil semua daftar tanggal yang sudah berstatus presensi
     fun getAllAttendanceDates(): Set<LocalDate> {
         val dates = mutableSetOf<LocalDate>()
-        val db = readableDatabase
-        val cursor = db.rawQuery("SELECT $COLUMN_DATE FROM $TABLE_ATTENDANCE", null)
+        try {
+            val db = readableDatabase
+            val cursor = db.rawQuery("SELECT $COLUMN_DATE FROM $TABLE_ATTENDANCE", null)
 
-        if (cursor.moveToFirst()) {
-            val dateColumnIndex = cursor.getColumnIndex(COLUMN_DATE)
-            if (dateColumnIndex != -1) {
-                do {
-                    val dateStr = cursor.getString(dateColumnIndex)
-                    try {
-                        dates.add(LocalDate.parse(dateStr))
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                } while (cursor.moveToNext())
+            if (cursor.moveToFirst()) {
+                val dateColumnIndex = cursor.getColumnIndex(COLUMN_DATE)
+                if (dateColumnIndex != -1) {
+                    do {
+                        val dateStr = cursor.getString(dateColumnIndex)
+                        try {
+                            dates.add(LocalDate.parse(dateStr))
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    } while (cursor.moveToNext())
+                }
             }
+            cursor.close()
+            db.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
-        cursor.close()
-        db.close()
         return dates
     }
 }
