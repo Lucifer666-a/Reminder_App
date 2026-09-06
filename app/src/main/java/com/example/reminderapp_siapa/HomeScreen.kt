@@ -14,12 +14,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -89,8 +93,8 @@ fun HomeScreen(
         }
     }
 
-    // Logika menentukan target absen selanjutnya
-    val (nextTitle, nextTargetTime) = remember(isPagiAttended, isSoreAttended, currentTime) {
+    // Logika menentukan target absen selanjutnya & interval awal/akhir untuk progress
+    val (nextTitle, nextTargetTime, startTime) = remember(isPagiAttended, isSoreAttended, currentTime) {
         val todayDate = currentTime.toLocalDate()
         val pagiTarget = LocalDateTime.of(todayDate, LocalTime.of(8, 0))
         val soreTarget = LocalDateTime.of(todayDate, LocalTime.of(16, 0))
@@ -98,21 +102,30 @@ fun HomeScreen(
 
         if (!isPagiAttended) {
             if (currentTime.isBefore(pagiTarget)) {
-                "Absen Masuk (08:00 WIB)" to pagiTarget
+                Triple("Absen Masuk (08:00 WIB)", pagiTarget, LocalDateTime.of(todayDate, LocalTime.of(0, 0)))
             } else if (currentTime.isBefore(soreTarget)) {
-                "Absen Pulang (16:00 WIB)" to soreTarget
+                Triple("Absen Pulang (16:00 WIB)", soreTarget, pagiTarget)
             } else {
-                "Absen Masuk Besok (08:00 WIB)" to besokPagiTarget
+                Triple("Absen Masuk Besok (08:00 WIB)", besokPagiTarget, soreTarget)
             }
         } else if (!isSoreAttended) {
             if (currentTime.isBefore(soreTarget)) {
-                "Absen Pulang (16:00 WIB)" to soreTarget
+                Triple("Absen Pulang (16:00 WIB)", soreTarget, pagiTarget)
             } else {
-                "Absen Masuk Besok (08:00 WIB)" to besokPagiTarget
+                Triple("Absen Masuk Besok (08:00 WIB)", besokPagiTarget, soreTarget)
             }
         } else {
-            "Absen Masuk Besok (08:00 WIB)" to besokPagiTarget
+            Triple("Absen Masuk Besok (08:00 WIB)", besokPagiTarget, soreTarget)
         }
+    }
+
+    // Hitung Progress (0.0f - 1.0f)
+    val progressFloat = if (isPreview) {
+        0.65f
+    } else {
+        val totalIntervalSec = Duration.between(startTime, nextTargetTime).seconds.coerceAtLeast(1L)
+        val elapsedSec = Duration.between(startTime, currentTime).seconds.coerceIn(0L, totalIntervalSec)
+        (elapsedSec.toFloat() / totalIntervalSec.toFloat()).coerceIn(0f, 1f)
     }
 
     // Hitung format Teks Countdown Sisa Waktu
@@ -374,29 +387,45 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Card Absen Selanjutnya (Abu-Abu) dengan Countdown
+                    // Card Absen Selanjutnya (Abu-Abu) dengan Countdown & Progress Bar
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
                             .background(Color(0xFF6E6E6E), RoundedCornerShape(22.dp))
                             .border(1.dp, Color(0xFF888888), RoundedCornerShape(22.dp))
-                            .padding(20.dp)
+                            .padding(horizontal = 20.dp, vertical = 16.dp)
                     ) {
                         Column(
                             modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.Center,
+                            verticalArrangement = Arrangement.SpaceEvenly,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(
-                                text = nextTitle,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFFE0E0E0)
-                            )
+                            // Header dengan Ikon Jam ⏰
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color.White.copy(alpha = 0.15f),
+                                    modifier = Modifier.padding(end = 8.dp)
+                                ) {
+                                    Text(
+                                        text = "⏰",
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                                Text(
+                                    text = nextTitle,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFFE0E0E0)
+                                )
+                            }
 
-                            Spacer(modifier = Modifier.height(12.dp))
-
+                            // Angka Countdown Utama
                             Text(
                                 text = countdownText,
                                 fontSize = 22.sp,
@@ -404,13 +433,40 @@ fun HomeScreen(
                                 color = Color(0xFF39FF14)
                             )
 
-                            Spacer(modifier = Modifier.height(8.dp))
+                            // Progress Bar & Indikator Persentase
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                LinearProgressIndicator(
+                                    progress = { progressFloat },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(8.dp)
+                                        .clip(CircleShape),
+                                    color = Color(0xFF39FF14),
+                                    trackColor = Color(0xFF505050)
+                                )
 
-                            Text(
-                                text = "Sisa waktu ke jadwal presensi berikutnya",
-                                fontSize = 12.sp,
-                                color = Color(0xFFB0B0B0)
-                            )
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "Waktu Berjalan",
+                                        fontSize = 11.sp,
+                                        color = Color(0xFFB0B0B0)
+                                    )
+                                    Text(
+                                        text = "${(progressFloat * 100).toInt()}%",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF39FF14)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
