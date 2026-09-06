@@ -42,10 +42,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.reminderapp_siapa.ui.theme.Reminderapp_SIAPATheme
 import kotlinx.coroutines.delay
+import java.time.DayOfWeek
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
@@ -183,15 +185,62 @@ fun HomeScreen(
                 .padding(horizontal = 20.dp)
                 .padding(top = 48.dp, bottom = 20.dp)
         ) {
-            // Title Header "Halo, Nama..."
-            Text(
-                text = "Halo, $userName ",
-                fontSize = 26.sp,
-                fontWeight = FontWeight.SemiBold,
-                fontFamily = FontFamily.SansSerif,
-                color = Color.White,
+            // Title Header "Halo, Nama...", Tanggal Hari Ini & Status Kerja/Libur
+            val formattedDate = remember(today) {
+                val formatter = DateTimeFormatter.ofPattern(
+                    "EEEE, d MMMM yyyy",
+                    Locale.forLanguageTag("id-ID")
+                )
+                today.format(formatter)
+            }
+
+            val dayOfWeek = today.dayOfWeek
+            val isWorkingDay = dayOfWeek != DayOfWeek.SATURDAY && dayOfWeek != DayOfWeek.SUNDAY
+            val statusText = if (isWorkingDay) "Kerja" else "Libur"
+            val statusColor = if (isWorkingDay) Color(0xFF39FF14) else Color(0xFFFF4D4D)
+
+            Column(
                 modifier = Modifier.padding(start = 8.dp, bottom = 18.dp)
-            )
+            ) {
+                Text(
+                    text = "Halo, $userName 👋",
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.SansSerif,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = formattedDate,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        fontFamily = FontFamily.SansSerif,
+                        color = Color(0xFFE2E2E2)
+                    )
+                    Text(
+                        text = " • ",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFD0D0D0)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(statusColor, CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = statusText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.SansSerif,
+                        color = statusColor
+                    )
+                }
+            }
 
             // Outer Container Card (Bingkai Utama dengan Border Hitam)
             Card(
