@@ -16,8 +16,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -80,6 +82,26 @@ fun HomeScreen(
 
     val isPagiAttended = pagiTime != null
     val isSoreAttended = soreTime != null
+
+    // Hitung ringkasan mingguan (Senin - Minggu minggu ini)
+    val monday = remember(today) { today.with(DayOfWeek.MONDAY) }
+    val sunday = remember(today) { today.with(DayOfWeek.SUNDAY) }
+
+    val pagiWeeklyCount = remember(isPreview, today) {
+        if (isPreview) 4 else {
+            val db = AttendanceDatabaseHelper(context)
+            val dates = db.getAllPagiAttendanceDates()
+            dates.count { !it.isBefore(monday) && !it.isAfter(sunday) }
+        }
+    }
+
+    val soreWeeklyCount = remember(isPreview, today) {
+        if (isPreview) 3 else {
+            val db = AttendanceDatabaseHelper(context)
+            val dates = db.getAllSoreAttendanceDates()
+            dates.count { !it.isBefore(monday) && !it.isAfter(sunday) }
+        }
+    }
 
     // State untuk ticking countdown per detik
     var currentTime by remember { mutableStateOf(LocalDateTime.now()) }
@@ -270,6 +292,7 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(20.dp)
+                        .verticalScroll(rememberScrollState())
                 ) {
                     // Section 1: Status Absen
                     Text(
@@ -290,7 +313,7 @@ fun HomeScreen(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(140.dp)
+                                .height(130.dp)
                                 .background(Color(0xFF6E6E6E), RoundedCornerShape(22.dp))
                                 .border(
                                     2.dp,
@@ -320,10 +343,12 @@ fun HomeScreen(
                                     border = BorderStroke(1.dp, if (isPagiAttended) Color(0xFF39FF14) else Color(0xFFFFC107))
                                 ) {
                                     Text(
-                                        text = if (isPagiAttended) "✅ Sudah" else "⏳ Belum",
+                                        text = if (isPagiAttended) "Sudah" else "Belum",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (isPagiAttended) Color(0xFF39FF14) else Color(0xFFFFC107),
+                                        color = if (isPagiAttended) Color(0xFFFFFFFF) else Color(
+                                            0xFFFFFFFF
+                                        ),
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                     )
                                 }
@@ -334,7 +359,7 @@ fun HomeScreen(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(140.dp)
+                                .height(130.dp)
                                 .background(Color(0xFF6E6E6E), RoundedCornerShape(22.dp))
                                 .border(
                                     2.dp,
@@ -364,10 +389,12 @@ fun HomeScreen(
                                     border = BorderStroke(1.dp, if (isSoreAttended) Color(0xFF39FF14) else Color(0xFFFFC107))
                                 ) {
                                     Text(
-                                        text = if (isSoreAttended) "✅ Sudah" else "⏳ Belum",
+                                        text = if (isSoreAttended) "Sudah" else "Belum",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (isSoreAttended) Color(0xFF39FF14) else Color(0xFFFFC107),
+                                        color = if (isSoreAttended) Color(0xFFFFFFFF) else Color(
+                                            0xFFFFFFFF
+                                        ),
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                     )
                                 }
@@ -375,7 +402,7 @@ fun HomeScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     // Section 2: Absen Selanjutnya
                     Text(
@@ -385,20 +412,18 @@ fun HomeScreen(
                         color = Color.Black
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    // Card Absen Selanjutnya (Abu-Abu) dengan Countdown & Progress Bar
+                    // Card Absen Selanjutnya (Lebih Ringkas & Terekat Rapi)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f)
                             .background(Color(0xFF6E6E6E), RoundedCornerShape(22.dp))
                             .border(1.dp, Color(0xFF888888), RoundedCornerShape(22.dp))
-                            .padding(horizontal = 20.dp, vertical = 16.dp)
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
                         Column(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.SpaceEvenly,
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             // Header dengan Ikon Jam ⏰
@@ -409,29 +434,28 @@ fun HomeScreen(
                                 Surface(
                                     shape = CircleShape,
                                     color = Color.White.copy(alpha = 0.15f),
-                                    modifier = Modifier.padding(end = 8.dp)
+                                    modifier = Modifier.padding(end = 6.dp)
                                 ) {
-                                    Text(
-                                        text = "⏰",
-                                        fontSize = 14.sp,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
                                 }
                                 Text(
                                     text = nextTitle,
-                                    fontSize = 15.sp,
+                                    fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Color(0xFFE0E0E0)
                                 )
                             }
 
+                            Spacer(modifier = Modifier.height(6.dp))
+
                             // Angka Countdown Utama
                             Text(
                                 text = countdownText,
-                                fontSize = 22.sp,
+                                fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF39FF14)
+                                color = Color(0xFFFFFFFF)
                             )
+
+                            Spacer(modifier = Modifier.height(8.dp))
 
                             // Progress Bar & Indikator Persentase
                             Column(
@@ -442,13 +466,13 @@ fun HomeScreen(
                                     progress = { progressFloat },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(8.dp)
+                                        .height(6.dp)
                                         .clip(CircleShape),
                                     color = Color(0xFF39FF14),
                                     trackColor = Color(0xFF505050)
                                 )
 
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -456,16 +480,104 @@ fun HomeScreen(
                                 ) {
                                     Text(
                                         text = "Waktu Berjalan",
-                                        fontSize = 11.sp,
+                                        fontSize = 10.sp,
                                         color = Color(0xFFB0B0B0)
                                     )
                                     Text(
                                         text = "${(progressFloat * 100).toInt()}%",
-                                        fontSize = 11.sp,
+                                        fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color(0xFF39FF14)
                                     )
                                 }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Section 3: Ringkasan Minggu Ini (Weekly Summary)
+                    Text(
+                        text = "Ringkasan Minggu Ini",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Card Weekly Summary
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF6E6E6E), RoundedCornerShape(22.dp))
+                            .border(1.dp, Color(0xFF888888), RoundedCornerShape(22.dp))
+                            .padding(14.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Sub-stat 1: Absen Masuk Pagi
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
+                                    .padding(10.dp)
+                            ) {
+                                Text(
+                                    text = "Absen Masuk",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFFD0D0D0)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "$pagiWeeklyCount / 5 Hari",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                LinearProgressIndicator(
+                                    progress = { (pagiWeeklyCount / 5f).coerceIn(0f, 1f) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(4.dp)
+                                        .clip(CircleShape),
+                                    color = Color(0xFF39FF14),
+                                    trackColor = Color(0xFF505050)
+                                )
+                            }
+
+                            // Sub-stat 2: Absen Pulang Sore
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
+                                    .padding(10.dp)
+                            ) {
+                                Text(
+                                    text = "Absen Pulang",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFFD0D0D0)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "$soreWeeklyCount / 5 Hari",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                LinearProgressIndicator(
+                                    progress = { (soreWeeklyCount / 5f).coerceIn(0f, 1f) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(4.dp)
+                                        .clip(CircleShape),
+                                    color = Color(0xFF39FF14),
+                                    trackColor = Color(0xFF505050)
+                                )
                             }
                         }
                     }
