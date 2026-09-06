@@ -23,7 +23,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -37,7 +41,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.reminderapp_siapa.ui.theme.Reminderapp_SIAPATheme
+import kotlinx.coroutines.delay
+import java.time.Duration
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.util.Locale
 
 @Composable
 fun HomeScreen(
@@ -65,6 +74,60 @@ fun HomeScreen(
 
     val isPagiAttended = pagiTime != null
     val isSoreAttended = soreTime != null
+
+    // State untuk ticking countdown per detik
+    var currentTime by remember { mutableStateOf(LocalDateTime.now()) }
+
+    LaunchedEffect(isPreview) {
+        if (!isPreview) {
+            while (true) {
+                currentTime = LocalDateTime.now()
+                delay(1000L)
+            }
+        }
+    }
+
+    // Logika menentukan target absen selanjutnya
+    val (nextTitle, nextTargetTime) = remember(isPagiAttended, isSoreAttended, currentTime) {
+        val todayDate = currentTime.toLocalDate()
+        val pagiTarget = LocalDateTime.of(todayDate, LocalTime.of(8, 0))
+        val soreTarget = LocalDateTime.of(todayDate, LocalTime.of(16, 0))
+        val besokPagiTarget = LocalDateTime.of(todayDate.plusDays(1), LocalTime.of(8, 0))
+
+        if (!isPagiAttended) {
+            if (currentTime.isBefore(pagiTarget)) {
+                "Absen Masuk (08:00 WIB)" to pagiTarget
+            } else if (currentTime.isBefore(soreTarget)) {
+                "Absen Pulang (16:00 WIB)" to soreTarget
+            } else {
+                "Absen Masuk Besok (08:00 WIB)" to besokPagiTarget
+            }
+        } else if (!isSoreAttended) {
+            if (currentTime.isBefore(soreTarget)) {
+                "Absen Pulang (16:00 WIB)" to soreTarget
+            } else {
+                "Absen Masuk Besok (08:00 WIB)" to besokPagiTarget
+            }
+        } else {
+            "Absen Masuk Besok (08:00 WIB)" to besokPagiTarget
+        }
+    }
+
+    // Hitung format Teks Countdown Sisa Waktu
+    val countdownText = if (isPreview) {
+        "07 jam 45 menit 00 detik"
+    } else {
+        val duration = Duration.between(currentTime, nextTargetTime)
+        val totalSeconds = duration.seconds
+        if (totalSeconds <= 0) {
+            "Waktunya Absen!"
+        } else {
+            val hours = totalSeconds / 3600
+            val minutes = (totalSeconds % 3600) / 60
+            val seconds = totalSeconds % 60
+            String.format(Locale.getDefault(), "%02d jam %02d menit %02d detik", hours, minutes, seconds)
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -262,13 +325,45 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Card Absen Selanjutnya (Abu-Abu)
+                    // Card Absen Selanjutnya (Abu-Abu) dengan Countdown
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
                             .background(Color(0xFF6E6E6E), RoundedCornerShape(22.dp))
-                    )
+                            .border(1.dp, Color(0xFF888888), RoundedCornerShape(22.dp))
+                            .padding(20.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = nextTitle,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFFE0E0E0)
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Text(
+                                text = countdownText,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF39FF14)
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = "Sisa waktu ke jadwal presensi berikutnya",
+                                fontSize = 12.sp,
+                                color = Color(0xFFB0B0B0)
+                            )
+                        }
+                    }
                 }
             }
 
