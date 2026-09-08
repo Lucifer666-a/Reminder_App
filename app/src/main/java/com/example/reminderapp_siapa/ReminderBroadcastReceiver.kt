@@ -10,6 +10,8 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import java.time.DayOfWeek
+import java.time.LocalDate
 
 class ReminderBroadcastReceiver : BroadcastReceiver() {
 
@@ -17,6 +19,18 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         val title = intent.getStringExtra("EXTRA_TITLE") ?: "Pengingat Absen"
         val message = intent.getStringExtra("EXTRA_MESSAGE") ?: "Waktunya melakukan presensi/absen!"
         val notificationId = intent.getIntExtra("EXTRA_ID", 1001)
+
+        // Jadwalkan ulang alarm berikutnya untuk esok hari agar terus berjalan otomatis
+        val hour = if (notificationId == 101) 8 else 16
+        ReminderScheduler.scheduleReminder(context, notificationId, hour, 0, title, message)
+
+        // Cek apakah hari ini Weekend (Sabtu atau Minggu)
+        val today = LocalDate.now()
+        val dayOfWeek = today.dayOfWeek
+        if (dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY) {
+            // Hari Libur (Weekend): Jangan bunyikan alarm & jangan buka pop-up/notifikasi
+            return
+        }
 
         // 1. Membunyikan suara alarm secara teratur dengan AlarmSoundPlayer
         AlarmSoundPlayer.playSound(context)

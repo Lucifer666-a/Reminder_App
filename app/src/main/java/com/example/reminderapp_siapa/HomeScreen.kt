@@ -193,7 +193,7 @@ fun HomeScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 24.dp, end = 24.dp, top = 52.dp, bottom = 32.dp)
+                        .padding(start = 24.dp, end = 24.dp, top = 72.dp, bottom = 36.dp)
                 ) {
                     // Row Atas: Halo Admin & Status Hari Kerja
                     Row(
@@ -234,7 +234,7 @@ fun HomeScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(36.dp))
+                    Spacer(modifier = Modifier.height(48.dp))
 
                     // Tanggal Besar (Angka & Bulan) Dikebwahin Lagi
                     Text(

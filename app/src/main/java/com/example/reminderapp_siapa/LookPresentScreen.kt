@@ -1,13 +1,11 @@
 package com.example.reminderapp_siapa
 
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -17,9 +15,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -32,15 +31,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.reminderapp_siapa.ui.theme.Reminderapp_SIAPATheme
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
@@ -50,91 +50,74 @@ import java.util.Locale
 fun LookPresentScreen(
     onBackClick: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val isPreview = LocalInspectionMode.current
+
     // State bulan yang sedang dipilih (Dinamis dengan Calendar API java.time)
     var currentYearMonth by remember { mutableStateOf(YearMonth.now()) }
     val today = remember { LocalDate.now() }
 
-    // Contoh data tanggal kehadiran dinamis
-    val presentDates = remember(currentYearMonth) {
-        val list = mutableSetOf<LocalDate>()
-        for (day in 1..currentYearMonth.lengthOfMonth()) {
-            if (day % 2 == 1 && day <= today.dayOfMonth) {
-                list.add(currentYearMonth.atDay(day))
+    // Ambil data tanggal kehadiran Pagi dan Sore secara terpisah dari SQLite
+    val pagiDates = remember(currentYearMonth, isPreview) {
+        if (isPreview) {
+            val list = mutableSetOf<LocalDate>()
+            for (day in 1..currentYearMonth.lengthOfMonth()) {
+                if (day % 2 == 1 && day <= today.dayOfMonth) {
+                    list.add(currentYearMonth.atDay(day))
+                }
             }
+            list
+        } else {
+            val db = AttendanceDatabaseHelper(context)
+            db.getAllPagiAttendanceDates()
         }
-        list
+    }
+
+    val soreDates = remember(currentYearMonth, isPreview) {
+        if (isPreview) {
+            val list = mutableSetOf<LocalDate>()
+            for (day in 1..currentYearMonth.lengthOfMonth()) {
+                if ((day % 2 == 1 && day % 3 == 0) && day <= today.dayOfMonth) {
+                    list.add(currentYearMonth.atDay(day))
+                }
+            }
+            list
+        } else {
+            val db = AttendanceDatabaseHelper(context)
+            db.getAllSoreAttendanceDates()
+        }
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF989694))
+            .background(Color(0xFFE6F5FA))
     ) {
-        // Background Lingkaran Dekoratf 3D
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val radius1 = size.width * 0.45f
-            val center1 = Offset(size.width * 0.9f, size.height * 0.18f)
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color.White, Color(0xFF606060)),
-                    center = Offset(center1.x - radius1 * 0.3f, center1.y - radius1 * 0.3f),
-                    radius = radius1 * 1.3f
-                ),
-                center = center1,
-                radius = radius1
-            )
-
-            val radius2 = size.width * 0.45f
-            val center2 = Offset(size.width * 0.05f, size.height * 0.68f)
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color.White, Color(0xFF606060)),
-                    center = Offset(center2.x - radius2 * 0.3f, center2.y - radius2 * 0.3f),
-                    radius = radius2 * 1.3f
-                ),
-                center = center2,
-                radius = radius2
-            )
-
-            val radius3 = size.width * 0.40f
-            val center3 = Offset(size.width * 0.92f, size.height * 0.92f)
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color.White, Color(0xFF606060)),
-                    center = Offset(center3.x - radius3 * 0.3f, center3.y - radius3 * 0.3f),
-                    radius = radius3 * 1.3f
-                ),
-                center = center3,
-                radius = radius3
-            )
-        }
-
-        // Konten Utama Screen
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 20.dp)
-                .padding(top = 44.dp, bottom = 20.dp)
+                .padding(top = 52.dp, bottom = 24.dp)
+                .verticalScroll(rememberScrollState())
         ) {
             // Header Top Bar
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp)
+                    .padding(bottom = 20.dp)
             ) {
                 // Tombol Kembali (Back)
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(42.dp)
                         .background(Color.White, CircleShape)
-                        .border(1.dp, Color.Black, CircleShape)
                         .clickable { onBackClick() }
                 ) {
                     Text(
                         text = "←",
-                        fontSize = 20.sp,
+                        fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.Black
                     )
@@ -144,7 +127,7 @@ fun LookPresentScreen(
 
                 Text(
                     text = "Daftar Hadir",
-                    fontSize = 20.sp,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black
                 )
@@ -153,8 +136,8 @@ fun LookPresentScreen(
             // Month Navigation Bar (Navigasi Pindah Bulan)
             Card(
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
-                border = BorderStroke(1.dp, Color.Black),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1C483A)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp)
@@ -162,7 +145,7 @@ fun LookPresentScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -171,13 +154,13 @@ fun LookPresentScreen(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .size(36.dp)
-                            .background(Color(0xFF333333), CircleShape)
+                            .background(Color.White.copy(alpha = 0.15f), CircleShape)
                             .clickable { currentYearMonth = currentYearMonth.minusMonths(1) }
                     ) {
                         Text("<", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
 
-                    // Nama Bulan & Tahun (dinamis, misal: "Oktober 2024")
+                    // Nama Bulan & Tahun (dinamis, misal: "Februari 2025")
                     val monthName = currentYearMonth.month.getDisplayName(TextStyle.FULL, Locale.forLanguageTag("id-ID"))
                     Text(
                         text = "$monthName ${currentYearMonth.year}",
@@ -191,7 +174,7 @@ fun LookPresentScreen(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .size(36.dp)
-                            .background(Color(0xFF333333), CircleShape)
+                            .background(Color.White.copy(alpha = 0.15f), CircleShape)
                             .clickable { currentYearMonth = currentYearMonth.plusMonths(1) }
                     ) {
                         Text(">", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
@@ -199,36 +182,34 @@ fun LookPresentScreen(
                 }
             }
 
-            // Tabel Kalender Per Bulan (Dinamis 7 Kolom) - Mengikuti Tinggi Konten
+            // Tabel Kalender Per Bulan (Dinamis 7 Kolom)
             MonthCalendarTable(
                 yearMonth = currentYearMonth,
                 today = today,
-                presentDates = presentDates
+                pagiDates = pagiDates,
+                soreDates = soreDates
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             // Tombol Download PDF Presensi
             Button(
                 onClick = { /* Action Download PDF */ },
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFDCE6D9)
+                    containerColor = Color(0xFF1C483A)
                 ),
-                border = BorderStroke(1.dp, Color.Black),
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
                     text = "📄 Download PDF Presensi",
-                    color = Color.Black,
+                    color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp
                 )
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
         }
     }
 }
@@ -237,7 +218,8 @@ fun LookPresentScreen(
 fun MonthCalendarTable(
     yearMonth: YearMonth,
     today: LocalDate,
-    presentDates: Set<LocalDate>,
+    pagiDates: Set<LocalDate>,
+    soreDates: Set<LocalDate>,
     modifier: Modifier = Modifier
 ) {
     // Dihitung otomatis dengan API java.time
@@ -258,8 +240,8 @@ fun MonthCalendarTable(
 
     Card(
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
-        border = BorderStroke(1.5.dp, Color.Black),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C483A)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = modifier.fillMaxWidth()
     ) {
         Column(
@@ -279,7 +261,7 @@ fun MonthCalendarTable(
                         text = header,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = Color(0xFFA3C2B5),
                         modifier = Modifier.weight(1f),
                         textAlign = TextAlign.Center
                     )
@@ -299,13 +281,25 @@ fun MonthCalendarTable(
                         for (i in 0 until 7) {
                             val date = rowDays.getOrNull(i)
                             if (date != null) {
+                                val hasPagi = date in pagiDates
+                                val hasSore = date in soreDates
+                                val attendanceCount = (if (hasPagi) 1 else 0) + (if (hasSore) 1 else 0)
+
                                 val isToday = date == today
-                                val isPresent = date in presentDates
+                                val isWeekend = date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY
 
                                 val bgColor = when {
-                                    isToday -> Color(0xFFFFC107)    // Kuning untuk Hari Ini
-                                    isPresent -> Color(0xFF4CAF50)  // Hijau untuk Hadir
-                                    else -> Color(0xFF424242)       // Abu-abu untuk Absen/Libur
+                                    attendanceCount == 2 -> Color(0xFF18A86C) // Hijau Pekat (Lengkap 2x Absen)
+                                    attendanceCount == 1 -> Color(0xFF4ADE80) // Hijau Muda (Baru 1x Absen)
+                                    isToday -> Color(0xFFFFC107)               // Kuning Gold untuk Hari Ini
+                                    isWeekend -> Color(0xFF224237)             // Warna Pudar untuk Weekend
+                                    else -> Color(0xFF2B5948)                  // Dark Green Muted untuk Hari Kerja biasa
+                                }
+
+                                val textColor = when {
+                                    attendanceCount == 1 -> Color(0xFF0F381D) // Teks Gelap Kontras di atas Hijau Muda
+                                    isWeekend && attendanceCount == 0 && !isToday -> Color(0xFF8AA898) // Teks Pudar untuk Weekend
+                                    else -> Color.White
                                 }
 
                                 val shape = if (isToday) CircleShape else RoundedCornerShape(8.dp)
@@ -322,7 +316,7 @@ fun MonthCalendarTable(
                                         text = date.dayOfMonth.toString(),
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color.White
+                                        color = textColor
                                     )
                                 }
                             } else {

@@ -162,7 +162,7 @@ fun AlarmTriggerPopUp(
 
                 // Pertanyaan "Sudah Absen apa Belum?"
                 Text(
-                    text = "Apakah Sudah Absen?",
+                    text = "Apakah Sudah Absenw?",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black,
