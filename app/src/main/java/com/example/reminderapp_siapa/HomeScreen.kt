@@ -1,9 +1,7 @@
 package com.example.reminderapp_siapa
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,8 +34,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -58,7 +54,7 @@ import java.util.Locale
 
 @Composable
 fun HomeScreen(
-    userName: String = "Nama",
+    userName: String = "Admin",
     onLookPresentClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -166,417 +162,301 @@ fun HomeScreen(
         }
     }
 
+    // Format Hari & Tanggal
+    val dayOfWeek = today.dayOfWeek
+    val isWorkingDay = dayOfWeek != DayOfWeek.SATURDAY && dayOfWeek != DayOfWeek.SUNDAY
+    val statusText = if (isWorkingDay) "Hari Kerja ." else "Hari Libur ."
+    val statusColor = if (isWorkingDay) Color(0xFF22C55E) else Color(0xFFEF4444)
+
+    val dayNumberStr = today.dayOfMonth.toString()
+    val monthNameStr = remember(today) {
+        today.format(DateTimeFormatter.ofPattern("MMMM", Locale.forLanguageTag("id-ID")))
+    }
+
+    // Root Container dengan Background Cyan Pastel Terang
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF989694))
+            .background(Color(0xFFE6F5FA))
+            .padding(horizontal = 16.dp, vertical = 20.dp)
     ) {
-        // Lingkaran dekoratif bulat tegas di background
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            // 1. Lingkaran KANAN ATAS
-            val radius1 = size.width * 0.45f
-            val center1 = Offset(size.width * 0.9f, size.height * 0.18f)
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color.White, Color(0xFF606060)),
-                    center = Offset(center1.x - radius1 * 0.3f, center1.y - radius1 * 0.3f),
-                    radius = radius1 * 1.3f
-                ),
-                center = center1,
-                radius = radius1
-            )
-
-            // 2. Lingkaran KIRI BAWAH
-            val radius2 = size.width * 0.45f
-            val center2 = Offset(size.width * 0.05f, size.height * 0.68f)
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color.White, Color(0xFF606060)),
-                    center = Offset(center2.x - radius2 * 0.3f, center2.y - radius2 * 0.3f),
-                    radius = radius2 * 1.3f
-                ),
-                center = center2,
-                radius = radius2
-            )
-
-            // 3. Lingkaran KANAN BAWAH
-            val radius3 = size.width * 0.40f
-            val center3 = Offset(size.width * 0.92f, size.height * 0.92f)
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color.White, Color(0xFF606060)),
-                    center = Offset(center3.x - radius3 * 0.3f, center3.y - radius3 * 0.3f),
-                    radius = radius3 * 1.3f
-                ),
-                center = center3,
-                radius = radius3
-            )
-        }
-
-        // Layout Konten Utama
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp)
-                .padding(top = 48.dp, bottom = 20.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Title Header "Halo, Nama...", Tanggal Hari Ini & Status Kerja/Libur
-            val formattedDate = remember(today) {
-                val formatter = DateTimeFormatter.ofPattern(
-                    "EEEE, d MMMM yyyy",
-                    Locale.forLanguageTag("id-ID")
-                )
-                today.format(formatter)
-            }
-
-            val dayOfWeek = today.dayOfWeek
-            val isWorkingDay = dayOfWeek != DayOfWeek.SATURDAY && dayOfWeek != DayOfWeek.SUNDAY
-            val statusText = if (isWorkingDay) "Kerja" else "Libur"
-            val statusColor = if (isWorkingDay) Color(0xFF39FF14) else Color(0xFFFF4D4D)
-
-            Column(
-                modifier = Modifier.padding(start = 8.dp, bottom = 18.dp)
+            // 1. KARTU UTAMA ATAS (PUTIH) - Header Nama, Status Kerja & Tanggal Besar
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = "Halo, $userName 👋",
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.SansSerif,
-                    color = Color.White
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp)
                 ) {
+                    // Row Atas: Halo Admin & Status Hari Kerja
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column {
+                            Text(
+                                text = "Halo,",
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black
+                            )
+                            Text(
+                                text = userName,
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.Light,
+                                color = Color.Black
+                            )
+                        }
+
+                        Text(
+                            text = statusText,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = statusColor
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(28.dp))
+
+                    // Tanggal Besar (Angka & Bulan)
                     Text(
-                        text = formattedDate,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        fontFamily = FontFamily.SansSerif,
-                        color = Color(0xFFE2E2E2)
-                    )
-                    Text(
-                        text = " • ",
-                        fontSize = 14.sp,
+                        text = dayNumberStr,
+                        fontSize = 72.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFD0D0D0)
+                        color = Color.Black,
+                        lineHeight = 72.sp
                     )
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(statusColor, CircleShape)
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
                     Text(
-                        text = statusText,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.SansSerif,
-                        color = statusColor
+                        text = monthNameStr,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = Color.Black
                     )
                 }
             }
 
-            // Outer Container Card (Bingkai Utama dengan Border Hitam)
+            // 2. KARTU TENGAH (HIJAU MUDA) - Status Absen & Countdown
             Card(
-                shape = RoundedCornerShape(32.dp),
-                border = BorderStroke(1.5.dp, Color.Black),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF9E9C9A).copy(alpha = 0.6f)
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF98D882)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
                         .padding(20.dp)
-                        .verticalScroll(rememberScrollState())
                 ) {
-                    // Section 1: Status Absen
                     Text(
                         text = "Status Absen",
-                        fontSize = 18.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.Black
+                        color = Color(0xFF1B4D2E)
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = nextTitle,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF1B4D2E).copy(alpha = 0.85f)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = countdownText,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F381D)
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // 2 Kotak Terpisah (Kiri: Absen Masuk, Kanan: Absen Pulang)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Kotak 1: Kiri (Absen Masuk Pagi)
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(130.dp)
-                                .background(Color(0xFF6E6E6E), RoundedCornerShape(22.dp))
-                                .border(
-                                    2.dp,
-                                    if (isPagiAttended) Color(0xFF39FF14) else Color(0xFF626060),
-                                    RoundedCornerShape(22.dp)
-                                )
-                                .padding(14.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Absen Masuk (08:00)",
-                                    fontSize = 12.sp,
-                                    color = Color(0xFFD0D0D0)
-                                )
-                                Text(
-                                    text = pagiTime ?: "--:-- WIB",
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                                Surface(
-                                    shape = CircleShape,
-                                    color = if (isPagiAttended) Color(0xFF39FF14).copy(alpha = 0.2f) else Color(0xFFFFC107).copy(alpha = 0.2f),
-                                    border = BorderStroke(1.dp, if (isPagiAttended) Color(0xFF39FF14) else Color(0xFFFFC107))
-                                ) {
-                                    Text(
-                                        text = if (isPagiAttended) "Sudah" else "Belum",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isPagiAttended) Color(0xFFFFFFFF) else Color(
-                                            0xFFFFFFFF
-                                        ),
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        // Kotak 2: Kanan (Absen Pulang Sore)
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(130.dp)
-                                .background(Color(0xFF6E6E6E), RoundedCornerShape(22.dp))
-                                .border(
-                                    2.dp,
-                                    if (isSoreAttended) Color(0xFF39FF14) else Color(0xFF626060),
-                                    RoundedCornerShape(22.dp)
-                                )
-                                .padding(14.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Absen Pulang (16:00)",
-                                    fontSize = 12.sp,
-                                    color = Color(0xFFD0D0D0)
-                                )
-                                Text(
-                                    text = soreTime ?: "--:-- WIB",
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                                Surface(
-                                    shape = CircleShape,
-                                    color = if (isSoreAttended) Color(0xFF39FF14).copy(alpha = 0.2f) else Color(0xFFFFC107).copy(alpha = 0.2f),
-                                    border = BorderStroke(1.dp, if (isSoreAttended) Color(0xFF39FF14) else Color(0xFFFFC107))
-                                ) {
-                                    Text(
-                                        text = if (isSoreAttended) "Sudah" else "Belum",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isSoreAttended) Color(0xFFFFFFFF) else Color(
-                                            0xFFFFFFFF
-                                        ),
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Section 2: Absen Selanjutnya
-                    Text(
-                        text = "Absen Selanjutnya",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Card Absen Selanjutnya (Lebih Ringkas & Terekat Rapi)
-                    Box(
+                    LinearProgressIndicator(
+                        progress = { progressFloat },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFF6E6E6E), RoundedCornerShape(22.dp))
-                            .border(1.dp, Color(0xFF888888), RoundedCornerShape(22.dp))
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .height(6.dp)
+                            .clip(CircleShape),
+                        color = Color(0xFF1B4D2E),
+                        trackColor = Color.White.copy(alpha = 0.5f)
+                    )
+                }
+            }
+
+            // 3. GRID BAWAH (2 KOLOM: Kiri Riwayat, Kanan Absen Masuk & Pulang)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Kolom Kiri: Riwayat Absen (Hijau Tua Pekat)
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1C483A)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(260.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.SpaceBetween
                     ) {
+                        Text(
+                            text = "Riwayat Absen",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFA3C2B5)
+                        )
+
                         Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            // Header dengan Ikon Jam ⏰
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color.White.copy(alpha = 0.15f),
-                                    modifier = Modifier.padding(end = 6.dp)
-                                ) {
-                                }
-                                Text(
-                                    text = nextTitle,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFFE0E0E0)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            // Angka Countdown Utama
-                            Text(
-                                text = countdownText,
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFFFFFFF)
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // Progress Bar & Indikator Persentase
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                LinearProgressIndicator(
-                                    progress = { progressFloat },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(6.dp)
-                                        .clip(CircleShape),
-                                    color = Color(0xFF39FF14),
-                                    trackColor = Color(0xFF505050)
-                                )
-
-                                Spacer(modifier = Modifier.height(4.dp))
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = "Waktu Berjalan",
-                                        fontSize = 10.sp,
-                                        color = Color(0xFFB0B0B0)
-                                    )
-                                    Text(
-                                        text = "${(progressFloat * 100).toInt()}%",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF39FF14)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Section 3: Ringkasan Minggu Ini (Weekly Summary)
-                    Text(
-                        text = "Ringkasan Minggu Ini",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Card Weekly Summary
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFF6E6E6E), RoundedCornerShape(22.dp))
-                            .border(1.dp, Color(0xFF888888), RoundedCornerShape(22.dp))
-                            .padding(14.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            // Sub-stat 1: Absen Masuk Pagi
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
-                                    .padding(10.dp)
-                            ) {
+                            // Stat 1: Pagi
+                            Column {
                                 Text(
                                     text = "Absen Masuk",
                                     fontSize = 11.sp,
-                                    color = Color(0xFFD0D0D0)
+                                    color = Color(0xFFA3C2B5)
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "$pagiWeeklyCount / 5 Hari",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                LinearProgressIndicator(
-                                    progress = { (pagiWeeklyCount / 5f).coerceIn(0f, 1f) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(4.dp)
-                                        .clip(CircleShape),
-                                    color = Color(0xFF39FF14),
-                                    trackColor = Color(0xFF505050)
-                                )
                             }
 
-                            // Sub-stat 2: Absen Pulang Sore
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
-                                    .padding(10.dp)
-                            ) {
+                            // Stat 2: Sore
+                            Column {
                                 Text(
                                     text = "Absen Pulang",
                                     fontSize = 11.sp,
-                                    color = Color(0xFFD0D0D0)
+                                    color = Color(0xFFA3C2B5)
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "$soreWeeklyCount / 5 Hari",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                LinearProgressIndicator(
-                                    progress = { (soreWeeklyCount / 5f).coerceIn(0f, 1f) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(4.dp)
-                                        .clip(CircleShape),
-                                    color = Color(0xFF39FF14),
-                                    trackColor = Color(0xFF505050)
+                            }
+                        }
+
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.White.copy(alpha = 0.1f)
+                        ) {
+                            Text(
+                                text = "Minggu Ini",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Kolom Kanan: 2 Card Bertumpuk (Absen Masuk & Absen Pulang)
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Card Absen Masuk (Teal Green)
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0A9376)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(124.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(14.dp),
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Absen Masuk",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White.copy(alpha = 0.9f)
+                            )
+                            Text(
+                                text = pagiTime ?: "--:-- WIB",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Surface(
+                                shape = CircleShape,
+                                color = Color.White.copy(alpha = 0.2f)
+                            ) {
+                                Text(
+                                    text = if (isPagiAttended) "✅ Sudah" else "⏳ Belum",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Card Absen Pulang (Emerald Green)
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF18A86C)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(124.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(14.dp),
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Absen Pulang",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White.copy(alpha = 0.9f)
+                            )
+                            Text(
+                                text = soreTime ?: "--:-- WIB",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Surface(
+                                shape = CircleShape,
+                                color = Color.White.copy(alpha = 0.2f)
+                            ) {
+                                Text(
+                                    text = if (isSoreAttended) "✅ Sudah" else "⏳ Belum",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                 )
                             }
                         }
@@ -584,62 +464,40 @@ fun HomeScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Bottom Bar Container (Kapsul Putih di Bawah)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White, CircleShape)
-                    .border(1.dp, Color(0xFFD0D0D0), CircleShape)
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            // Tombol Akses Cepat di Bagian Bawah
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
+                Button(
+                    onClick = { /* Action Jump to Web */ },
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Color(0xFFC0E0D5)),
+                    contentPadding = PaddingValues(vertical = 12.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    // Tombol 1: jump to web
-                    Button(
-                        onClick = { /* Action Jump To Web */ },
-                        shape = CircleShape,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFDCE6D9)
-                        ),
-                        border = BorderStroke(1.dp, Color(0xFF888888)),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(end = 6.dp)
-                    ) {
-                        Text(
-                            text = "jump to web",
-                            color = Color.Black,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                    }
+                    Text(
+                        text = "Jump to Web",
+                        color = Color(0xFF1C483A),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
 
-                    // Tombol 2: look present
-                    Button(
-                        onClick = { onLookPresentClick() },
-                        shape = CircleShape,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFDCE6D9)
-                        ),
-                        border = BorderStroke(1.dp, Color(0xFF888888)),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(start = 6.dp)
-                    ) {
-                        Text(
-                            text = "look present",
-                            color = Color.Black,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                    }
+                Button(
+                    onClick = { onLookPresentClick() },
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C483A)),
+                    contentPadding = PaddingValues(vertical = 12.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "Look Present",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
                 }
             }
         }
