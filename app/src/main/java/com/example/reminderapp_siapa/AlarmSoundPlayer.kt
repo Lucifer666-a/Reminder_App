@@ -13,10 +13,16 @@ object AlarmSoundPlayer {
      * Membunyikan suara alarm berulang (looping) sampai dihentikan.
      */
     fun playSound(context: Context) {
-        stopSound() // Pastikan menghentikan suara sebelumnya jika ada
+        // Jika sedang berbunyi, tidak perlu mengulang dari awal
+        if (mediaPlayer?.isPlaying == true) {
+            return
+        }
+
+        stopSound() // Pastikan menghentikan instance lama jika ada
 
         try {
             val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
                 ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
             mediaPlayer = MediaPlayer().apply {

@@ -2,13 +2,13 @@ package com.example.reminderapp_siapa
 
 import android.app.KeyguardManager
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -31,8 +31,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -47,22 +45,39 @@ class AlarmTriggerActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setupWindowFlags()
+        handleAlarmIntent(intent)
+    }
 
-        // Konfigurasi agar layar otomatis menyala & MUNCUL LANGSUNG DI ATAS LOCKSCREEN TANPA MINTA PIN
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        setupWindowFlags()
+        handleAlarmIntent(intent)
+    }
+
+    private fun setupWindowFlags() {
+        // Konfigurasi agar layar otomatis menyala & MUNCUL LANGSUNG DI ATAS APLIKASI LAIN / LOCKSCREEN
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
+            val keyguardManager = getSystemService(KEYGUARD_SERVICE) as? KeyguardManager
+            keyguardManager?.requestDismissKeyguard(this, null)
         }
-        
+
         @Suppress("DEPRECATION")
         window.addFlags(
             WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
                     WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
+                    WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
         )
+    }
 
-        val title = intent.getStringExtra("EXTRA_TITLE") ?: "Waktunya Absen!"
-        val message = intent.getStringExtra("EXTRA_MESSAGE") ?: "Apakah Anda sudah melakukan absen?"
+    private fun handleAlarmIntent(currentIntent: Intent) {
+        val title = currentIntent.getStringExtra("EXTRA_TITLE") ?: "Waktunya Absen!"
+        val message = currentIntent.getStringExtra("EXTRA_MESSAGE") ?: "Apakah Anda sudah melakukan absen?"
 
         // Membunyikan suara alarm saat pop-up terbuka
         AlarmSoundPlayer.playSound(this)
@@ -162,7 +177,7 @@ fun AlarmTriggerPopUp(
 
                 // Pertanyaan "Sudah Absen apa Belum?"
                 Text(
-                    text = "Apakah Sudah Absenw?",
+                    text = "Apakah Sudah Absen?",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black,

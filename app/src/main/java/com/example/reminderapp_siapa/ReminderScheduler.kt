@@ -4,13 +4,13 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import java.util.Calendar
 
 object ReminderScheduler {
 
     /**
-     * Menjadwalkan pengingat alarm pada jam dan menit tertentu.
+     * Menjadwalkan pengingat alarm pada jam dan menit tertentu menggunakan AlarmClock.
+     * AlarmClock memberikan prioritas tertinggi di Android (membuka layar & memicu sound terjamin).
      */
     fun scheduleReminder(
         context: Context,
@@ -48,27 +48,15 @@ object ReminderScheduler {
             }
         }
 
-        // Mengecek izin exact alarm pada Android 12+ (API 31+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (alarmManager.canScheduleExactAlarms()) {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    calendar.timeInMillis,
-                    pendingIntent
-                )
-            } else {
-                alarmManager.setAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    calendar.timeInMillis,
-                    pendingIntent
-                )
-            }
-        } else {
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
+        // Gunakan setAlarmClock untuk menjamin akurasi tertinggi & hak akses membuka layar saat HP aktif
+        try {
+            val alarmClockInfo = AlarmManager.AlarmClockInfo(
                 calendar.timeInMillis,
                 pendingIntent
             )
+            alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
