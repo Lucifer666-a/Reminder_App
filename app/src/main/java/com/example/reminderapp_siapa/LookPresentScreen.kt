@@ -43,6 +43,7 @@ import com.example.reminderapp_siapa.ui.theme.Reminderapp_SIAPATheme
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -56,6 +57,9 @@ fun LookPresentScreen(
     // State bulan yang sedang dipilih (Dinamis dengan Calendar API java.time)
     var currentYearMonth by remember { mutableStateOf(YearMonth.now()) }
     val today = remember { LocalDate.now() }
+
+    // State untuk expand / collapse detail apel
+    var isApelDetailExpanded by remember { mutableStateOf(false) }
 
     // Ambil data tanggal kehadiran Pagi dan Sore secara terpisah dari SQLite
     val pagiDates = remember(currentYearMonth, isPreview) {
@@ -86,6 +90,29 @@ fun LookPresentScreen(
             val db = AttendanceDatabaseHelper(context)
             db.getAllSoreAttendanceDates()
         }
+    }
+
+    // Daftar semua Hari Senin (Apel Pagi) dan Hari Jumat (Apel Sore) pada bulan yang dipilih
+    val mondaysInMonth = remember(currentYearMonth) {
+        val list = mutableListOf<LocalDate>()
+        for (day in 1..currentYearMonth.lengthOfMonth()) {
+            val date = currentYearMonth.atDay(day)
+            if (date.dayOfWeek == DayOfWeek.MONDAY) {
+                list.add(date)
+            }
+        }
+        list
+    }
+
+    val fridaysInMonth = remember(currentYearMonth) {
+        val list = mutableListOf<LocalDate>()
+        for (day in 1..currentYearMonth.lengthOfMonth()) {
+            val date = currentYearMonth.atDay(day)
+            if (date.dayOfWeek == DayOfWeek.FRIDAY) {
+                list.add(date)
+            }
+        }
+        list
     }
 
     Box(
@@ -190,7 +217,34 @@ fun LookPresentScreen(
                 soreDates = soreDates
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Legenda / Keterangan Warna Kalender
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(10.dp).background(Color(0xFF18A86C), RoundedCornerShape(2.dp)))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("2x Absen", fontSize = 11.sp, color = Color(0xFF1C483A), fontWeight = FontWeight.Medium)
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(10.dp).background(Color(0xFF4ADE80), RoundedCornerShape(2.dp)))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("1x Absen", fontSize = 11.sp, color = Color(0xFF1C483A), fontWeight = FontWeight.Medium)
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(10.dp).background(Color(0xFFFFC107), CircleShape))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Hari Ini", fontSize = 11.sp, color = Color(0xFF1C483A), fontWeight = FontWeight.Medium)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Tombol Download PDF Presensi
             Button(
@@ -209,6 +263,124 @@ fun LookPresentScreen(
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp
                 )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Kartu Expandable "See More" Detail Absen Apel Pagi & Sore
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1C483A)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isApelDetailExpanded = !isApelDetailExpanded }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Detail Absen Apel Bulan Ini",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+
+                        Text(
+                            text = if (isApelDetailExpanded) "Sembunyikan ▲" else "See More ▼",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF39FF14)
+                        )
+                    }
+
+                    if (isApelDetailExpanded) {
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Detail Apel Pagi (Senin)
+                        Text(
+                            text = "Apel Pagi (Senin)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFA3C2B5)
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        mondaysInMonth.forEach { date ->
+                            val dateFormatted = date.format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("id-ID")))
+                            val time = if (isPreview) {
+                                if (date.dayOfMonth <= 15) "07:30 WIB" else null
+                            } else {
+                                remember(date) { AttendanceDatabaseHelper(context).getApelPagiTime(date) }
+                            }
+                            val isAttended = time != null
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 3.dp)
+                                    .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Senin, $dateFormatted", fontSize = 12.sp, color = Color.White)
+                                Text(
+                                    text = if (isAttended) "✅ $time" else "❌ Belum",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isAttended) Color(0xFF39FF14) else Color(0xFFEF4444)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Detail Apel Sore (Jumat)
+                        Text(
+                            text = "Apel Sore (Jumat)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFA3C2B5)
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        fridaysInMonth.forEach { date ->
+                            val dateFormatted = date.format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("id-ID")))
+                            val time = if (isPreview) {
+                                if (date.dayOfMonth <= 10) "16:00 WIB" else null
+                            } else {
+                                remember(date) { AttendanceDatabaseHelper(context).getApelSoreTime(date) }
+                            }
+                            val isAttended = time != null
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 3.dp)
+                                    .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Jumat, $dateFormatted", fontSize = 12.sp, color = Color.White)
+                                Text(
+                                    text = if (isAttended) "✅ $time" else "❌ Belum",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isAttended) Color(0xFF39FF14) else Color(0xFFEF4444)
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
