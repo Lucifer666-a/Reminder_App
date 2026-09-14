@@ -10,7 +10,6 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,12 +21,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -148,16 +149,16 @@ fun AlarmTriggerPopUp(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.45f)), // Transparan gelap blur sehingga layar belakang tetap terlihat
+            .background(Color.Black.copy(alpha = 0.5f)), // Backdrop transparan gelap blur
         contentAlignment = Alignment.Center
     ) {
-        // Pop Up Card Alarm
+        // Pop Up Card Alarm (Clean White Card bertema Pastel)
         Card(
-            shape = RoundedCornerShape(28.dp),
+            shape = RoundedCornerShape(32.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFE2E2E2)
+                containerColor = Color.White
             ),
-            border = BorderStroke(1.5.dp, Color.Black),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
@@ -168,19 +169,28 @@ fun AlarmTriggerPopUp(
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Ikon Alarm ⏰
-                Text(
-                    text = "⏰",
-                    fontSize = 48.sp,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
+                // Circular Badge Ikon Alarm ⏰
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFEDFAFD),
+                    modifier = Modifier.size(68.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "⏰",
+                            fontSize = 32.sp
+                        )
+                    }
+                }
 
-                // Judul
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Judul Alarm
                 Text(
                     text = title,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black,
+                    color = Color(0xFF1C483A),
                     textAlign = TextAlign.Center
                 )
 
@@ -189,14 +199,14 @@ fun AlarmTriggerPopUp(
                 // Pertanyaan / Pesan
                 Text(
                     text = message,
-                    fontSize = 15.sp,
-                    color = Color(0xFF444444),
+                    fontSize = 14.sp,
+                    color = Color(0xFF555555),
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-                // Pertanyaan "Sudah Absen apa Belum?"
+                // Pertanyaan "Apakah Sudah Absen?"
                 Text(
                     text = "Apakah Sudah Absen?",
                     fontSize = 16.sp,
@@ -207,51 +217,53 @@ fun AlarmTriggerPopUp(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Row 2 Tombol (Belum & Sudah)
+                // Row 2 Tombol Action (Belum & Sudah)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Tombol 1: Belum
+                    // Tombol 1: Belum (Soft Rose Pill)
                     Button(
                         onClick = { onBelumClick() },
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFE5A9A9) // Merah Lembut
+                            containerColor = Color(0xFFFEE2E2)
                         ),
-                        border = BorderStroke(1.dp, Color.Black),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
                         contentPadding = PaddingValues(vertical = 12.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .padding(end = 8.dp)
+                            .height(48.dp)
+                            .padding(end = 6.dp)
                     ) {
                         Text(
                             text = "Belum",
-                            color = Color.Black,
+                            color = Color(0xFF991B1B),
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
+                            fontSize = 15.sp
                         )
                     }
 
-                    // Tombol 2: Sudah
+                    // Tombol 2: Sudah (Dark Forest Green Pill)
                     Button(
                         onClick = { onSudahClick() },
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFC5FA96) // Hijau Cerah
+                            containerColor = Color(0xFF1C483A)
                         ),
-                        border = BorderStroke(1.dp, Color.Black),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
                         contentPadding = PaddingValues(vertical = 12.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .padding(start = 8.dp)
+                            .height(48.dp)
+                            .padding(start = 6.dp)
                     ) {
                         Text(
                             text = "Sudah",
-                            color = Color.Black,
+                            color = Color.White,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
+                            fontSize = 15.sp
                         )
                     }
                 }
