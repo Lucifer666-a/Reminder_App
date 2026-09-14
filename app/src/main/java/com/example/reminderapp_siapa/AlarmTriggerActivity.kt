@@ -1,6 +1,7 @@
 package com.example.reminderapp_siapa
 
 import android.app.KeyguardManager
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -76,6 +77,23 @@ class AlarmTriggerActivity : ComponentActivity() {
     }
 
     private fun handleAlarmIntent(currentIntent: Intent) {
+        val today = LocalDate.now()
+        val currentHour = LocalTime.now().hour
+        val db = AttendanceDatabaseHelper(this)
+
+        // Cek jika sudah absen untuk shift saat ini, tidak perlu membunyikan alarm atau membuka Pop-Up
+        val isAlreadyAttended = if (currentHour < 12) {
+            db.getPagiAttendanceTime(today) != null
+        } else {
+            db.getSoreAttendanceTime(today) != null
+        }
+
+        if (isAlreadyAttended) {
+            AlarmSoundPlayer.stopSound()
+            finishAndRemoveTask()
+            return
+        }
+
         val title = currentIntent.getStringExtra("EXTRA_TITLE") ?: "Waktunya Absen!"
         val message = currentIntent.getStringExtra("EXTRA_MESSAGE") ?: "Apakah Anda sudah melakukan absen?"
 
@@ -89,21 +107,24 @@ class AlarmTriggerActivity : ComponentActivity() {
                     title = title,
                     message = message,
                     onSudahClick = {
-                        // Matikan suara alarm & simpan presensi (pagi / sore tergantung jam saat ini)
+                        // Matikan suara alarm & hapus notifikasi dari status bar
                         AlarmSoundPlayer.stopSound()
-                        val db = AttendanceDatabaseHelper(this)
-                        val currentHour = LocalTime.now().hour
+                        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+                        notificationManager.cancelAll()
+
                         if (currentHour < 12) {
-                            db.markAttendancePagi(LocalDate.now())
+                            db.markAttendancePagi(today)
                         } else {
-                            db.markAttendanceSore(LocalDate.now())
+                            db.markAttendanceSore(today)
                         }
-                        finish()
+                        finishAndRemoveTask()
                     },
                     onBelumClick = {
-                        // Matikan suara alarm & tutup
+                        // Matikan suara alarm & hapus notifikasi dari status bar
                         AlarmSoundPlayer.stopSound()
-                        finish()
+                        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+                        notificationManager.cancelAll()
+                        finishAndRemoveTask()
                     }
                 )
             }
