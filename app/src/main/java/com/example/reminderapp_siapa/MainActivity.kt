@@ -100,9 +100,11 @@ class MainActivity : ComponentActivity() {
                     )
                     "home" -> HomeScreen(
                         userName = userName,
-                        onLookPresentClick = { currentScreen = "look_present" }
+                        onLookPresentClick = { currentScreen = "look_present" },
+                        onGalleryClick = { currentScreen = "gallery" }
                     )
                     "look_present" -> LookPresentScreen(onBackClick = { currentScreen = "home" })
+                    "gallery" -> GalleryScreen(onBackClick = { currentScreen = "home" })
                 }
             }
         }

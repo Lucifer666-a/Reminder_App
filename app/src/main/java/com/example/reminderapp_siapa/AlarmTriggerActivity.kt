@@ -113,11 +113,12 @@ class AlarmTriggerActivity : ComponentActivity() {
                         val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
                         notificationManager.cancelAll()
 
-                        if (currentHour < 12) {
-                            db.markAttendancePagi(today)
-                        } else {
-                            db.markAttendanceSore(today)
+                        // Buka Kamera untuk Ambil Foto Verifikasi Presensi
+                        val photoType = if (currentHour < 12) "PAGI" else "SORE"
+                        val cameraIntent = Intent(this, CameraActivity::class.java).apply {
+                            putExtra("EXTRA_PHOTO_TYPE", photoType)
                         }
+                        startActivity(cameraIntent)
                         finishAndRemoveTask()
                     },
                     onBelumClick = {

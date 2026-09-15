@@ -54,7 +54,8 @@ import java.util.Locale
 @Composable
 fun HomeScreen(
     userName: String = "Admin",
-    onLookPresentClick: () -> Unit = {}
+    onLookPresentClick: () -> Unit = {},
+    onGalleryClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
@@ -484,7 +485,7 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Button(
-                        onClick = { /* Action Jump to Web */ },
+                        onClick = { onLookPresentClick() },
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                         border = BorderStroke(1.dp, Color(0xFFC0E0D5)),
@@ -492,7 +493,7 @@ fun HomeScreen(
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
-                            text = "Jump to Web",
+                            text = "Look Present",
                             color = Color(0xFF1C483A),
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
@@ -500,14 +501,14 @@ fun HomeScreen(
                     }
 
                     Button(
-                        onClick = { onLookPresentClick() },
+                        onClick = { onGalleryClick() },
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C483A)),
                         contentPadding = PaddingValues(vertical = 12.dp),
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
-                            text = "Look Present",
+                            text = "📷 Galeri Foto",
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp

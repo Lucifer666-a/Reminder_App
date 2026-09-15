@@ -9,6 +9,9 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -44,6 +47,11 @@
             android:noHistory="true"
             android:launchMode="singleInstance"
             android:theme="@style/Theme.TranslucentAlarm" />
+
+        <activity
+            android:name=".CameraActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Reminderapp_SIAPA" />
 
         <activity
             android:name=".MainActivity"

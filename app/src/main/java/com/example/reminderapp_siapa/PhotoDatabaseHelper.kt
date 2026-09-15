@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import java.io.File
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -59,7 +60,48 @@ class PhotoDatabaseHelper(context: Context) : SQLiteOpenHelper(
     }
 
     /**
-     * Simpan data foto hasil tangkapan kamera ke database SQLite.
+     * Otomatis membersihkan foto dan rekaman SQLite yang umurnya sudah melebihi batas hari (Default: 90 Hari).
+     * File fisik foto di penyimpanan aplikasi akan dihapus agar memori internal HP tidak penuh.
+     */
+    fun cleanupOldPhotos(daysLimit: Long = 90) {
+        try {
+            val cutoffTimestamp = System.currentTimeMillis() - (daysLimit * 24 * 60 * 60 * 1000L)
+            val db = writableDatabase
+
+            // 1. Cari file foto yang umurnya > 90 hari dan hapus file fisiknya dari disk
+            val cursor = db.rawQuery(
+                "SELECT $COLUMN_FILE_PATH FROM $TABLE_PHOTOS WHERE $COLUMN_TIMESTAMP < ?",
+                arrayOf(cutoffTimestamp.toString())
+            )
+
+            if (cursor.moveToFirst()) {
+                val pathIdx = cursor.getColumnIndex(COLUMN_FILE_PATH)
+                if (pathIdx != -1) {
+                    do {
+                        val filePath = cursor.getString(pathIdx)
+                        try {
+                            val file = File(filePath)
+                            if (file.exists()) {
+                                file.delete()
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    } while (cursor.moveToNext())
+                }
+            }
+            cursor.close()
+
+            // 2. Hapus baris rekaman dari tabel SQLite
+            db.delete(TABLE_PHOTOS, "$COLUMN_TIMESTAMP < ?", arrayOf(cutoffTimestamp.toString()))
+            db.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Simpan data foto hasil tangkapan kamera ke database SQLite (otomatis bersihkan foto > 90 hari).
      */
     fun savePhoto(
         filePath: String,
@@ -67,6 +109,8 @@ class PhotoDatabaseHelper(context: Context) : SQLiteOpenHelper(
         date: LocalDate = LocalDate.now(),
         timeStr: String = LocalTime.now().format(timeFormatter)
     ): Long {
+        cleanupOldPhotos(90)
+
         val db = writableDatabase
         val values = ContentValues().apply {
             put(COLUMN_FILE_PATH, filePath)
@@ -123,9 +167,11 @@ class PhotoDatabaseHelper(context: Context) : SQLiteOpenHelper(
     }
 
     /**
-     * Ambil semua daftar foto presensi yang tersimpan di database.
+     * Ambil semua daftar foto presensi yang tersimpan di database (otomatis bersihkan foto > 90 hari).
      */
     fun getAllPhotos(): List<PhotoRecord> {
+        cleanupOldPhotos(90)
+
         val photoList = mutableListOf<PhotoRecord>()
         try {
             val db = readableDatabase
@@ -164,11 +210,32 @@ class PhotoDatabaseHelper(context: Context) : SQLiteOpenHelper(
     }
 
     /**
-     * Hapus rekaman foto berdasarkan ID.
+     * Hapus rekaman foto berdasarkan ID beserta file fisiknya dari disk.
      */
     fun deletePhoto(id: Long): Boolean {
         return try {
             val db = writableDatabase
+            val cursor = db.rawQuery(
+                "SELECT $COLUMN_FILE_PATH FROM $TABLE_PHOTOS WHERE $COLUMN_ID = ?",
+                arrayOf(id.toString())
+            )
+
+            if (cursor.moveToFirst()) {
+                val pathIdx = cursor.getColumnIndex(COLUMN_FILE_PATH)
+                if (pathIdx != -1) {
+                    val filePath = cursor.getString(pathIdx)
+                    try {
+                        val file = File(filePath)
+                        if (file.exists()) {
+                            file.delete()
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+            cursor.close()
+
             val deletedRows = db.delete(TABLE_PHOTOS, "$COLUMN_ID = ?", arrayOf(id.toString()))
             db.close()
             deletedRows > 0
