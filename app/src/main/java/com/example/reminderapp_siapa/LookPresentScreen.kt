@@ -50,7 +50,8 @@ import java.util.Locale
 @Composable
 fun LookPresentScreen(
     onBackClick: () -> Unit = {},
-    onGalleryClick: () -> Unit = {}
+    onGalleryClick: () -> Unit = {},
+    onJumpWebClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
@@ -328,6 +329,7 @@ fun LookPresentScreen(
                                     .fillMaxWidth()
                                     .padding(vertical = 3.dp)
                                     .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                                    .clickable { onJumpWebClick() }
                                     .padding(horizontal = 12.dp, vertical = 8.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
@@ -367,6 +369,7 @@ fun LookPresentScreen(
                                     .fillMaxWidth()
                                     .padding(vertical = 3.dp)
                                     .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                                    .clickable { onJumpWebClick() }
                                     .padding(horizontal = 12.dp, vertical = 8.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically

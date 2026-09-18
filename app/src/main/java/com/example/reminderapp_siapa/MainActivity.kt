@@ -108,7 +108,11 @@ class MainActivity : ComponentActivity() {
                     )
                     "look_present" -> LookPresentScreen(
                         onBackClick = { currentScreen = "home" },
-                        onGalleryClick = { currentScreen = "gallery" }
+                        onGalleryClick = { currentScreen = "gallery" },
+                        onJumpWebClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://presensi.sumselprov.go.id/"))
+                            startActivity(intent)
+                        }
                     )
                     "gallery" -> GalleryScreen(onBackClick = { currentScreen = "look_present" })
                 }
