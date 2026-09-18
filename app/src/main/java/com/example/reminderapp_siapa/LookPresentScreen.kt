@@ -49,7 +49,8 @@ import java.util.Locale
 
 @Composable
 fun LookPresentScreen(
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onGalleryClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
@@ -246,9 +247,9 @@ fun LookPresentScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Tombol Download PDF Presensi
+            // Tombol Galeri Foto Presensi (Ganti dari Download PDF)
             Button(
-                onClick = { /* Action Download PDF */ },
+                onClick = { onGalleryClick() },
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF1C483A)
@@ -258,7 +259,7 @@ fun LookPresentScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "📄 Download PDF Presensi",
+                    text = "📷 Lihat Galeri Foto Presensi",
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp

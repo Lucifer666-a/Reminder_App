@@ -2,6 +2,7 @@ package com.example.reminderapp_siapa
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,7 +56,7 @@ import java.util.Locale
 fun HomeScreen(
     userName: String = "Admin",
     onLookPresentClick: () -> Unit = {},
-    onGalleryClick: () -> Unit = {}
+    onJumpWebClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
@@ -401,6 +402,7 @@ fun HomeScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(124.dp)
+                                .clickable { onJumpWebClick() }
                         ) {
                             Column(
                                 modifier = Modifier
@@ -443,6 +445,7 @@ fun HomeScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(124.dp)
+                                .clickable { onJumpWebClick() }
                         ) {
                             Column(
                                 modifier = Modifier
@@ -501,14 +504,14 @@ fun HomeScreen(
                     }
 
                     Button(
-                        onClick = { onGalleryClick() },
+                        onClick = { onJumpWebClick() },
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C483A)),
                         contentPadding = PaddingValues(vertical = 12.dp),
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
-                            text = "📷 Galeri Foto",
+                            text = "🌐 Jump to Web",
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
