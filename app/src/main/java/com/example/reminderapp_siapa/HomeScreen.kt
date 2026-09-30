@@ -56,6 +56,7 @@ import java.util.Locale
 fun HomeScreen(
     userName: String = "Admin",
     onLookPresentClick: () -> Unit = {},
+    onMeetingAttendanceClick: () -> Unit = {},
     onJumpWebClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -483,24 +484,44 @@ fun HomeScreen(
                 }
 
                 // Tombol Akses Cepat di Bagian Bawah
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Button(
-                        onClick = { onLookPresentClick() },
-                        shape = CircleShape,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                        border = BorderStroke(1.dp, Color(0xFFC0E0D5)),
-                        contentPadding = PaddingValues(vertical = 12.dp),
-                        modifier = Modifier.weight(1f)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text(
-                            text = "Look Present",
-                            color = Color(0xFF1C483A),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
+                        Button(
+                            onClick = { onLookPresentClick() },
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                            border = BorderStroke(1.dp, Color(0xFFC0E0D5)),
+                            contentPadding = PaddingValues(vertical = 12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = "Look Present",
+                                color = Color(0xFF1C483A),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        Button(
+                            onClick = { onMeetingAttendanceClick() },
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C483A)),
+                            contentPadding = PaddingValues(vertical = 12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = "✍️ Absen Rapat",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
                     }
 
                     Button(
@@ -508,7 +529,7 @@ fun HomeScreen(
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C483A)),
                         contentPadding = PaddingValues(vertical = 12.dp),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
                             text = "🌐 Jump to Web",

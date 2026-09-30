@@ -17,7 +17,7 @@ class AttendanceDatabaseHelper(context: Context) : SQLiteOpenHelper(
 
     companion object {
         private const val DATABASE_NAME = "attendance_db.db"
-        private const val DATABASE_VERSION = 3
+        private const val DATABASE_VERSION = 4
 
         // Tabel Absen Reguler
         const val TABLE_ABSEN_PAGI = "absen_pagi"
@@ -27,10 +27,17 @@ class AttendanceDatabaseHelper(context: Context) : SQLiteOpenHelper(
         const val TABLE_APEL_PAGI = "absen_apel_pagi"
         const val TABLE_APEL_SORE = "absen_apel_sore"
 
+        // Tabel Absen Rapat
+        const val TABLE_ABSEN_RAPAT = "absen_rapat"
+
         const val COLUMN_ID = "id"
         const val COLUMN_DATE = "date_str" // Format: YYYY-MM-DD
         const val COLUMN_TIME = "time_str" // Format: HH:mm WIB
         const val COLUMN_STATUS = "status"   // PRESENT, ABSENT
+        const val COLUMN_NAME = "nama"
+        const val COLUMN_POSITION = "jabatan"
+        const val COLUMN_SIGNATURE_PATH = "signature_path"
+        const val COLUMN_COLOR = "color"
 
         val timeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm 'WIB'")
     }
@@ -72,10 +79,23 @@ class AttendanceDatabaseHelper(context: Context) : SQLiteOpenHelper(
             )
         """.trimIndent()
 
+        val createTableRapatQuery = """
+            CREATE TABLE $TABLE_ABSEN_RAPAT (
+                $COLUMN_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COLUMN_DATE TEXT NOT NULL,
+                $COLUMN_TIME TEXT NOT NULL,
+                $COLUMN_NAME TEXT NOT NULL,
+                $COLUMN_POSITION TEXT NOT NULL,
+                $COLUMN_SIGNATURE_PATH TEXT,
+                $COLUMN_COLOR TEXT
+            )
+        """.trimIndent()
+
         db.execSQL(createTablePagiQuery)
         db.execSQL(createTableSoreQuery)
         db.execSQL(createTableApelPagiQuery)
         db.execSQL(createTableApelSoreQuery)
+        db.execSQL(createTableRapatQuery)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -83,6 +103,7 @@ class AttendanceDatabaseHelper(context: Context) : SQLiteOpenHelper(
         db.execSQL("DROP TABLE IF EXISTS $TABLE_ABSEN_SORE")
         db.execSQL("DROP TABLE IF EXISTS $TABLE_APEL_PAGI")
         db.execSQL("DROP TABLE IF EXISTS $TABLE_APEL_SORE")
+        db.execSQL("DROP TABLE IF EXISTS $TABLE_ABSEN_RAPAT")
         db.execSQL("DROP TABLE IF EXISTS attendance")
         onCreate(db)
     }
@@ -213,6 +234,30 @@ class AttendanceDatabaseHelper(context: Context) : SQLiteOpenHelper(
 
     fun getAllApelSoreDates(): Set<LocalDate> {
         return getAttendanceDatesFromTable(TABLE_APEL_SORE)
+    }
+
+    // --- ABSEN RAPAT ---
+
+    fun saveMeetingAttendance(
+        nama: String,
+        jabatan: String,
+        signaturePath: String?,
+        colorHex: String,
+        date: LocalDate = LocalDate.now(),
+        timeStr: String = LocalTime.now().format(timeFormatter)
+    ): Boolean {
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put(COLUMN_DATE, date.toString())
+            put(COLUMN_TIME, timeStr)
+            put(COLUMN_NAME, nama)
+            put(COLUMN_POSITION, jabatan)
+            put(COLUMN_SIGNATURE_PATH, signaturePath)
+            put(COLUMN_COLOR, colorHex)
+        }
+        val result = db.insert(TABLE_ABSEN_RAPAT, null, values)
+        db.close()
+        return result != -1L
     }
 
     // --- HELPER GENERIC ---

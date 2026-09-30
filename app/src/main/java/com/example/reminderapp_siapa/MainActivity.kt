@@ -71,7 +71,7 @@ class MainActivity : ComponentActivity() {
         // Memasang 2 alarm otomatis (08:00 Pagi & 16:00 Sore)
         ReminderScheduler.setupDefaultAbsenAlarms(this)
 
-        // SharedPreferences untuk menyimpan nama secara permanen di HP
+        // SharedPreferences untuk menyimpan nama dan jabatan secara permanen di HP
         val sharedPref = getSharedPreferences("app_user_prefs", MODE_PRIVATE)
         val savedUserName = sharedPref.getString("KEY_USER_NAME", "") ?: ""
 
@@ -88,12 +88,16 @@ class MainActivity : ComponentActivity() {
 
                 when (currentScreen) {
                     "login" -> LoginScreen(
-                        onLoginSuccess = { inputName ->
+                        onLoginSuccess = { inputName, inputJabatan ->
                             val finalName = if (inputName.isNotBlank()) inputName else "User"
+                            val finalJabatan = if (inputJabatan.isNotBlank()) inputJabatan else "Pegawai"
                             userName = finalName
 
                             // Simpan permanen ke SharedPreferences
-                            sharedPref.edit().putString("KEY_USER_NAME", finalName).apply()
+                            sharedPref.edit()
+                                .putString("KEY_USER_NAME", finalName)
+                                .putString("KEY_USER_POSITION", finalJabatan)
+                                .apply()
 
                             currentScreen = "home"
                         }
@@ -101,6 +105,10 @@ class MainActivity : ComponentActivity() {
                     "home" -> HomeScreen(
                         userName = userName,
                         onLookPresentClick = { currentScreen = "look_present" },
+                        onMeetingAttendanceClick = {
+                            val intent = Intent(this, MeetingAttendanceActivity::class.java)
+                            startActivity(intent)
+                        },
                         onJumpWebClick = {
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://presensi.sumselprov.go.id/"))
                             startActivity(intent)
@@ -123,9 +131,10 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (String) -> Unit = {}
+    onLoginSuccess: (String, String) -> Unit = { _, _ -> }
 ) {
     var nama by remember { mutableStateOf("") }
+    var jabatan by remember { mutableStateOf("") }
 
     // Outer Background Cyan Pastel Soft
     Box(
@@ -175,11 +184,39 @@ fun LoginScreen(
                         .height(54.dp)
                 )
 
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Input TextField Jabatan di bawah Nama (Soft Cyan Capsule)
+                OutlinedTextField(
+                    value = jabatan,
+                    onValueChange = { jabatan = it },
+                    placeholder = {
+                        Text(
+                            text = "Masukkan Jabatan....",
+                            color = Color(0xFF7A97A0),
+                            fontSize = 15.sp
+                        )
+                    },
+                    singleLine = true,
+                    shape = CircleShape,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color(0xFFEDFAFD),
+                        unfocusedContainerColor = Color(0xFFEDFAFD),
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedTextColor = Color(0xFF1E353F),
+                        unfocusedTextColor = Color(0xFF1E353F)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                )
+
                 Spacer(modifier = Modifier.height(28.dp))
 
                 // Tombol Login (Soft Cyan Pill Button)
                 Button(
-                    onClick = { onLoginSuccess(nama) },
+                    onClick = { onLoginSuccess(nama, jabatan) },
                     shape = CircleShape,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFFE0F7FC)

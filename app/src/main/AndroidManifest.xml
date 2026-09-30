@@ -54,6 +54,12 @@
             android:theme="@style/Theme.Reminderapp_SIAPA" />
 
         <activity
+            android:name=".MeetingAttendanceActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Reminderapp_SIAPA"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
