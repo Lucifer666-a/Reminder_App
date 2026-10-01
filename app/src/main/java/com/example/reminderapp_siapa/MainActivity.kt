@@ -7,7 +7,9 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -38,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -45,6 +48,9 @@ import androidx.compose.ui.unit.sp
 import com.example.reminderapp_siapa.ui.theme.Reminderapp_SIAPATheme
 
 class MainActivity : ComponentActivity() {
+
+    private var lastSavedName = ""
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -74,10 +80,14 @@ class MainActivity : ComponentActivity() {
         // SharedPreferences untuk menyimpan nama dan jabatan secara permanen di HP
         val sharedPref = getSharedPreferences("app_user_prefs", MODE_PRIVATE)
         val savedUserName = sharedPref.getString("KEY_USER_NAME", "") ?: ""
+        lastSavedName = savedUserName
 
         enableEdgeToEdge()
         setContent {
             Reminderapp_SIAPATheme {
+                val context = LocalContext.current
+                var backPressedTime by remember { mutableStateOf(0L) }
+
                 // Jika sudah ada nama tersimpan, langsung ke layar "home"
                 var currentScreen by remember {
                     mutableStateOf(if (savedUserName.isNotBlank()) "home" else "login")
@@ -87,44 +97,93 @@ class MainActivity : ComponentActivity() {
                 }
 
                 when (currentScreen) {
-                    "login" -> LoginScreen(
-                        onLoginSuccess = { inputName, inputJabatan ->
-                            val finalName = if (inputName.isNotBlank()) inputName else "User"
-                            val finalJabatan = if (inputJabatan.isNotBlank()) inputJabatan else "Pegawai"
-                            userName = finalName
+                    "login" -> {
+                        BackHandler {
+                            val currentTime = System.currentTimeMillis()
+                            if (currentTime - backPressedTime < 2000L) {
+                                (context as? ComponentActivity)?.finish()
+                            } else {
+                                backPressedTime = currentTime
+                                Toast.makeText(context, "Tekan sekali lagi untuk keluar", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        LoginScreen(
+                            onLoginSuccess = { inputName, inputJabatan ->
+                                val finalName = if (inputName.isNotBlank()) inputName else "User"
+                                val finalJabatan = if (inputJabatan.isNotBlank()) inputJabatan else "Pegawai"
+                                userName = finalName
 
-                            // Simpan permanen ke SharedPreferences
-                            sharedPref.edit()
-                                .putString("KEY_USER_NAME", finalName)
-                                .putString("KEY_USER_POSITION", finalJabatan)
-                                .apply()
+                                // Simpan permanen ke SharedPreferences
+                                sharedPref.edit()
+                                    .putString("KEY_USER_NAME", finalName)
+                                    .putString("KEY_USER_POSITION", finalJabatan)
+                                    .apply()
 
+                                currentScreen = "home"
+                            }
+                        )
+                    }
+                    "home" -> {
+                        // Logika double-tap back untuk keluar aplikasi pada Home Screen
+                        BackHandler {
+                            val currentTime = System.currentTimeMillis()
+                            if (currentTime - backPressedTime < 2000L) {
+                                (context as? ComponentActivity)?.finish()
+                            } else {
+                                backPressedTime = currentTime
+                                Toast.makeText(context, "Tekan sekali lagi untuk keluar", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        HomeScreen(
+                            userName = userName,
+                            onLookPresentClick = { currentScreen = "look_present" },
+                            onMeetingAttendanceClick = {
+                                val intent = Intent(this, MeetingAttendanceActivity::class.java)
+                                startActivity(intent)
+                            },
+                            onSettingsClick = {
+                                val intent = Intent(this, SettingsActivity::class.java)
+                                startActivity(intent)
+                            },
+                            onJumpWebClick = {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://presensi.sumselprov.go.id/"))
+                                startActivity(intent)
+                            }
+                        )
+                    }
+                    "look_present" -> {
+                        // Tekan kembali dari Look Present -> kembali ke home
+                        BackHandler {
                             currentScreen = "home"
                         }
-                    )
-                    "home" -> HomeScreen(
-                        userName = userName,
-                        onLookPresentClick = { currentScreen = "look_present" },
-                        onMeetingAttendanceClick = {
-                            val intent = Intent(this, MeetingAttendanceActivity::class.java)
-                            startActivity(intent)
-                        },
-                        onJumpWebClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://presensi.sumselprov.go.id/"))
-                            startActivity(intent)
+                        LookPresentScreen(
+                            onBackClick = { currentScreen = "home" },
+                            onGalleryClick = { currentScreen = "gallery" },
+                            onJumpWebClick = {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://presensi.sumselprov.go.id/"))
+                                startActivity(intent)
+                            }
+                        )
+                    }
+                    "gallery" -> {
+                        // Tekan kembali dari Gallery -> kembali ke look_present
+                        BackHandler {
+                            currentScreen = "look_present"
                         }
-                    )
-                    "look_present" -> LookPresentScreen(
-                        onBackClick = { currentScreen = "home" },
-                        onGalleryClick = { currentScreen = "gallery" },
-                        onJumpWebClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://presensi.sumselprov.go.id/"))
-                            startActivity(intent)
-                        }
-                    )
-                    "gallery" -> GalleryScreen(onBackClick = { currentScreen = "look_present" })
+                        GalleryScreen(onBackClick = { currentScreen = "look_present" })
+                    }
                 }
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val sharedPref = getSharedPreferences("app_user_prefs", MODE_PRIVATE)
+        val currentSavedName = sharedPref.getString("KEY_USER_NAME", "") ?: ""
+        if (currentSavedName.isNotBlank() && currentSavedName != lastSavedName) {
+            lastSavedName = currentSavedName
+            recreate() // Refresh activity agar nama baru dan pengaturan alarm langsung diterapkan
         }
     }
 }

@@ -7,11 +7,15 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 
 interface ApiService {
-    // 1. Mengambil daftar acara yang buka (mengembalikan JsonElement agar fleksibel untuk semua format JSON PHP)
+    // 1. Mengambil daftar acara yang buka
     @GET("acara.php")
     suspend fun getAcara(): Response<JsonElement>
 
-    // 2. Mengirim data absensi
+    // 2. Mengirim data absensi meeting / reguler
     @POST("absen.php")
     suspend fun submitAbsen(@Body request: AbsenRequest): Response<AbsenResponse>
+
+    // 3. Mengirim data presensi khusus apel (absen_apel.php tanpa PIN)
+    @POST("absen_apel.php")
+    suspend fun submitApelAbsen(@Body request: ApelAbsenRequest): Response<AbsenResponse>
 }

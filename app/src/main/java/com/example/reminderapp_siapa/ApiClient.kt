@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit
 
 object ApiClient {
     // 🌐 URL Ngrok Anda saat ini
-    private const val BASE_URL = "https://7cf4-140-213-65-250.ngrok-free.app/absen/api/"
+    private const val BASE_URL = "https://eb8c-103-31-133-164.ngrok-free.app/absen/api/"
 
     private val client: OkHttpClient by lazy {
         val logging = HttpLoggingInterceptor().apply {

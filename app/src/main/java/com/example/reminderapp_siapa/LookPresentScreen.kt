@@ -1,5 +1,7 @@
 package com.example.reminderapp_siapa
 
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -329,7 +331,17 @@ fun LookPresentScreen(
                                     .fillMaxWidth()
                                     .padding(vertical = 3.dp)
                                     .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
-                                    .clickable { onJumpWebClick() }
+                                    .clickable {
+                                        if (date == today) {
+                                            val intent = Intent(context, RegularAttendanceActivity::class.java).apply {
+                                                putExtra("EXTRA_DATE", date.toString())
+                                                putExtra("EXTRA_TYPE", "APEL_PAGI")
+                                            }
+                                            context.startActivity(intent)
+                                        } else {
+                                            Toast.makeText(context, "Tidak dapat mengubah presensi tanggal $dateFormatted (Mencegah manipulasi data)", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
                                     .padding(horizontal = 12.dp, vertical = 8.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
@@ -369,7 +381,17 @@ fun LookPresentScreen(
                                     .fillMaxWidth()
                                     .padding(vertical = 3.dp)
                                     .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
-                                    .clickable { onJumpWebClick() }
+                                    .clickable {
+                                        if (date == today) {
+                                            val intent = Intent(context, RegularAttendanceActivity::class.java).apply {
+                                                putExtra("EXTRA_DATE", date.toString())
+                                                putExtra("EXTRA_TYPE", "APEL_SORE")
+                                            }
+                                            context.startActivity(intent)
+                                        } else {
+                                            Toast.makeText(context, "Tidak dapat mengubah presensi tanggal $dateFormatted (Mencegah manipulasi data)", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
                                     .padding(horizontal = 12.dp, vertical = 8.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically

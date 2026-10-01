@@ -57,6 +57,7 @@ fun HomeScreen(
     userName: String = "Admin",
     onLookPresentClick: () -> Unit = {},
     onMeetingAttendanceClick: () -> Unit = {},
+    onSettingsClick: () -> Unit = {},
     onJumpWebClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -234,6 +235,16 @@ fun HomeScreen(
                                     .size(8.dp)
                                     .background(statusColor, CircleShape)
                             )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .background(Color(0xFFE6F5FA), CircleShape)
+                                    .clickable { onSettingsClick() }
+                            ) {
+                                Text(text = "⚙️", fontSize = 16.sp)
+                            }
                         }
                     }
 

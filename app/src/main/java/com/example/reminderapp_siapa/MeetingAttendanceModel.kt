@@ -13,6 +13,17 @@ data class AbsenRequest(
     val time: String
 )
 
+data class ApelAbsenRequest(
+    val nama: String,
+    val jabatan: String,
+    val acara: String,
+    val sesi: String,
+    val signature: String,
+    val color: String,
+    val date: String,
+    val time: String
+)
+
 data class AbsenResponse(
     val success: Boolean?,
     val message: String?

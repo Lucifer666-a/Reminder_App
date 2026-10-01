@@ -6,8 +6,6 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
-import android.media.RingtoneManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import java.time.DayOfWeek
@@ -61,7 +59,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             }
         }
 
-        // Tampilkan Notifikasi (Akan membuka AlarmTriggerActivity jika belum absen, atau MainActivity jika sudah)
+        // Tampilkan Notifikasi tanpa suara (suara alarm sepenuhnya diatur oleh pop-up activity di atas)
         showNotification(context, title, message, notificationId, isAlreadyAttended)
     }
 
@@ -75,27 +73,17 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        val channelId = "REMINDER_CHANNEL_ID"
-        val channelName = "Pengingat Absen & Reminder"
-
-        val alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        val channelId = "REMINDER_SILENT_CHANNEL_ID"
+        val channelName = "Pengingat Absen (Tanpa Suara)"
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val audioAttributes = AudioAttributes.Builder()
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .build()
-
             val channel = NotificationChannel(
                 channelId,
                 channelName,
-                NotificationManager.IMPORTANCE_HIGH
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Saluran Notifikasi Pengingat Alarm Absen"
-                enableVibration(true)
-                setSound(alarmSound, audioAttributes)
+                description = "Saluran Notifikasi Pengingat Absen Tanpa Suara"
+                setSound(null, null) // Nonaktifkan suara dari notifikasi agar tidak bentrok dengan pop-up alarm
             }
             notificationManager.createNotificationChannel(channel)
         }
@@ -125,16 +113,13 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Membangun Notifikasi Tanpa Tombol Action Tambahan
+        // Membangun Notifikasi Tanpa Suara (.setSound(null))
         val notificationBuilder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(if (isAlreadyAttended) "$title (Sudah Absen)" else title)
             .setContentText(if (isAlreadyAttended) "Anda telah menyelesaikan presensi hari ini." else message)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(contentPendingIntent)
-            .setSound(alarmSound)
-            .setVibrate(longArrayOf(0, 500, 200, 500))
             .setAutoCancel(true)
 
         if (!isAlreadyAttended) {
