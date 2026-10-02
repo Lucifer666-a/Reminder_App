@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -205,27 +206,35 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.Top
                     ) {
-                        Column {
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
                             Text(
                                 text = "Halo,",
-                                fontSize = 34.sp,
+                                fontSize = 32.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Black
                             )
+                            val displayName = if (userName.length > 8) "${userName.take(8)}..." else userName
                             Text(
-                                text = userName,
-                                fontSize = 34.sp,
+                                text = displayName,
+                                fontSize = 32.sp,
                                 fontWeight = FontWeight.Light,
-                                color = Color.Black
+                                color = Color.Black,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
+                        Spacer(modifier = Modifier.width(8.dp))
+
                         Row(
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 4.dp)
                         ) {
                             Text(
                                 text = statusLabel,
-                                fontSize = 14.sp,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = statusColor
                             )
@@ -235,7 +244,7 @@ fun HomeScreen(
                                     .size(8.dp)
                                     .background(statusColor, CircleShape)
                             )
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier

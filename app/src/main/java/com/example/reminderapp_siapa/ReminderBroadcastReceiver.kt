@@ -19,9 +19,8 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         val message = intent.getStringExtra("EXTRA_MESSAGE") ?: "Waktunya melakukan presensi/absen!"
         val notificationId = intent.getIntExtra("EXTRA_ID", 1001)
 
-        // Jadwalkan ulang alarm berikutnya untuk esok hari agar terus berjalan otomatis
-        val hour = if (notificationId == 101) 8 else 16
-        ReminderScheduler.scheduleReminder(context, notificationId, hour, 0, title, message)
+        // Jadwalkan ulang alarm berikutnya secara otomatis
+        ReminderScheduler.scheduleReminder(context, notificationId, title, message)
 
         // Cek apakah hari ini Weekend (Sabtu atau Minggu)
         val today = LocalDate.now()
@@ -40,8 +39,16 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             db.getSoreAttendanceTime(today) != null
         }
 
-        // Jika BELUM absen: Bunyikan alarm & Buka Pop-Up AlarmTriggerActivity secara otomatis
-        if (!isAlreadyAttended) {
+        // Cek apakah ini waktu Apel (Senin Pagi atau Jumat Sore) dan Mode Senyap Apel aktif di Settings
+        val isMondayMorning = dayOfWeek == DayOfWeek.MONDAY && isPagiShift
+        val isFridayEvening = dayOfWeek == DayOfWeek.FRIDAY && !isPagiShift
+
+        val sharedPref = context.getSharedPreferences("app_user_prefs", Context.MODE_PRIVATE)
+        val isApelSilentMode = sharedPref.getBoolean("KEY_APEL_SILENT_MODE", true) // Default true agar tidak mengganggu apel
+        val shouldSkipAlarmSound = (isMondayMorning || isFridayEvening) && isApelSilentMode
+
+        // Jika BELUM absen dan BUKAN waktu apel bersenyap: Bunyikan alarm & Buka Pop-Up AlarmTriggerActivity
+        if (!isAlreadyAttended && !shouldSkipAlarmSound) {
             AlarmSoundPlayer.playSound(context)
 
             val alarmIntent = Intent(context, AlarmTriggerActivity::class.java).apply {
@@ -59,7 +66,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             }
         }
 
-        // Tampilkan Notifikasi tanpa suara (suara alarm sepenuhnya diatur oleh pop-up activity di atas)
+        // Tampilkan Notifikasi tanpa suara
         showNotification(context, title, message, notificationId, isAlreadyAttended)
     }
 
@@ -83,14 +90,11 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Saluran Notifikasi Pengingat Absen Tanpa Suara"
-                setSound(null, null) // Nonaktifkan suara dari notifikasi agar tidak bentrok dengan pop-up alarm
+                setSound(null, null)
             }
             notificationManager.createNotificationChannel(channel)
         }
 
-        // Tentukan target Intent saat notifikasi diklik:
-        // - Jika belum absen: Buka Pop-Up AlarmTriggerActivity
-        // - Jika sudah absen: Buka Home Screen (MainActivity)
         val targetIntent = if (isAlreadyAttended) {
             Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -113,7 +117,6 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Membangun Notifikasi Tanpa Suara (.setSound(null))
         val notificationBuilder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(if (isAlreadyAttended) "$title (Sudah Absen)" else title)

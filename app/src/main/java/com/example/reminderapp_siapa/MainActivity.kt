@@ -146,7 +146,7 @@ class MainActivity : ComponentActivity() {
                                 startActivity(intent)
                             },
                             onJumpWebClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://presensi.sumselprov.go.id/"))
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://sikep.mahkamahagung.go.id/site/login"))
                                 startActivity(intent)
                             }
                         )
@@ -160,7 +160,7 @@ class MainActivity : ComponentActivity() {
                             onBackClick = { currentScreen = "home" },
                             onGalleryClick = { currentScreen = "gallery" },
                             onJumpWebClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://presensi.sumselprov.go.id/"))
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://sikep.mahkamahagung.go.id/site/login"))
                                 startActivity(intent)
                             }
                         )
