@@ -61,6 +61,11 @@ fun SettingsScreen(
         mutableStateOf(sharedPref.getString("KEY_CUSTOM_ALARM_URI", null))
     }
 
+    // Toggle Mode Senyap Saat Apel (Senin 07:45 & Jumat 15:45)
+    var apelSilentMode by remember {
+        mutableStateOf(sharedPref.getBoolean("KEY_APEL_SILENT_MODE", true))
+    }
+
     // Logika pembatasan 7 hari untuk ubah Nama & Jabatan (Anti-manipulasi)
     val lastUpdateTimestamp = remember { sharedPref.getLong("KEY_LAST_PROFILE_UPDATE_TIMESTAMP", 0L) }
     val sevenDaysMillis = TimeUnit.DAYS.toMillis(7)
@@ -130,7 +135,7 @@ fun SettingsScreen(
                         color = Color(0xFF1C483A)
                     )
                     Text(
-                        text = "Ubah profil dan suara reminder",
+                        text = "Ubah profil, alarm, & mode apel",
                         fontSize = 12.sp,
                         color = Color(0xFF555555)
                     )
@@ -225,6 +230,41 @@ fun SettingsScreen(
                         )
                     }
 
+                    // Mode Senyap Saat Apel (Toggle Switch)
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { apelSilentMode = !apelSilentMode }
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Mode Senyap Saat Apel",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1C483A)
+                                )
+                                Text(
+                                    text = "Meredam alarm otomatis saat jam Apel Pagi (Senin 07:45) & Apel Sore (Jumat 15:45)",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF555555)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Switch(
+                                checked = apelSilentMode,
+                                onCheckedChange = { apelSilentMode = it },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = Color(0xFF1C483A)
+                                )
+                            )
+                        }
+                    }
+
                     // Pilihan Suara Reminder (2 Opsi: Default & Custom)
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
@@ -284,7 +324,7 @@ fun SettingsScreen(
                         }
                     }
 
-                    // Tombol Uji Suara Reminder (Tanpa Looping, putar sekali)
+                    // Tombol Uji Suara Reminder (Tanpa Looping)
                     OutlinedButton(
                         onClick = {
                             if (soundMode == "custom" && customAlarmUriStr.isNullOrBlank()) {
@@ -334,6 +374,7 @@ fun SettingsScreen(
                             val editor = sharedPref.edit()
                                 .putString("KEY_ALARM_SOUND_MODE", soundMode)
                                 .putString("KEY_CUSTOM_ALARM_URI", customAlarmUriStr)
+                                .putBoolean("KEY_APEL_SILENT_MODE", apelSilentMode)
 
                             if (canUpdateProfile) {
                                 editor.putString("KEY_USER_NAME", nama.trim())

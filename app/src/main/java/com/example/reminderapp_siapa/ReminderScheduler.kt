@@ -9,14 +9,13 @@ import java.util.Calendar
 object ReminderScheduler {
 
     /**
-     * Menjadwalkan pengingat alarm pada jam dan menit tertentu menggunakan AlarmClock.
-     * AlarmClock memberikan prioritas tertinggi di Android (membuka layar & memicu sound terjamin).
+     * Menjadwalkan pengingat alarm dinamis berdasarkan hari (Senin vs Hari Biasa, Jumat vs Hari Biasa).
+     * - Absen Pagi: Senin = 07:45, Selasa - Jumat = 07:55
+     * - Absen Sore: Jumat = 16:10, Senin - Kamis = 16:30
      */
     fun scheduleReminder(
         context: Context,
         reminderId: Int,
-        hour: Int,
-        minute: Int,
         title: String = "Pengingat Absen",
         message: String = "Waktunya melakukan presensi/absen!"
     ) {
@@ -35,20 +34,39 @@ object ReminderScheduler {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Atur waktu alarm pada jam dan menit yang ditentukan
+        val now = Calendar.getInstance()
+        val currentDay = now.get(Calendar.DAY_OF_WEEK)
+
+        // Tentukan jam target awal berdasarkan hari ini
+        val (targetHour, targetMinute) = if (reminderId == 101) {
+            if (currentDay == Calendar.MONDAY) Pair(7, 45) else Pair(7, 55)
+        } else {
+            if (currentDay == Calendar.FRIDAY) Pair(16, 10) else Pair(16, 30)
+        }
+
         val calendar = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
+            set(Calendar.HOUR_OF_DAY, targetHour)
+            set(Calendar.MINUTE, targetMinute)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
 
-            // Jika jam/menit yang ditentukan sudah lewat hari ini, jadwalkan untuk besok
-            if (timeInMillis <= System.currentTimeMillis()) {
-                add(Calendar.DAY_OF_YEAR, 1)
+            // Jika waktu hari ini sudah lewat, atau hari ini libur (Sabtu/Minggu), cari hari kerja berikutnya
+            if (timeInMillis <= System.currentTimeMillis() || currentDay == Calendar.SATURDAY || currentDay == Calendar.SUNDAY) {
+                do {
+                    add(Calendar.DAY_OF_YEAR, 1)
+                } while (get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY || get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY)
+
+                val newDay = get(Calendar.DAY_OF_WEEK)
+                val (newH, newM) = if (reminderId == 101) {
+                    if (newDay == Calendar.MONDAY) Pair(7, 45) else Pair(7, 55)
+                } else {
+                    if (newDay == Calendar.FRIDAY) Pair(16, 10) else Pair(16, 30)
+                }
+                set(Calendar.HOUR_OF_DAY, newH)
+                set(Calendar.MINUTE, newM)
             }
         }
 
-        // Gunakan setAlarmClock untuk menjamin akurasi tertinggi & hak akses membuka layar saat HP aktif
         try {
             val alarmClockInfo = AlarmManager.AlarmClockInfo(
                 calendar.timeInMillis,
@@ -61,29 +79,21 @@ object ReminderScheduler {
     }
 
     /**
-     * Menjadwalkan 2 Alarm Absen Otomatis:
-     * 1. Alarm Pagi: Jam 08:00
-     * 2. Alarm Sore: Jam 16:00
+     * Menjadwalkan 2 Alarm Absen Otomatis.
      */
     fun setupDefaultAbsenAlarms(context: Context) {
-        // Alarm 1: Jam 08:00 Pagi (Absen Masuk)
         scheduleReminder(
             context = context,
             reminderId = 101,
-            hour = 8,
-            minute = 0,
             title = "Absen Masuk Pagi",
-            message = "Waktunya melakukan presensi/absen masuk pagi (08:00)!"
+            message = "Waktunya presensi pagi!"
         )
 
-        // Alarm 2: Jam 16:00 Sore (Absen Pulang)
         scheduleReminder(
             context = context,
             reminderId = 102,
-            hour = 16,
-            minute = 0,
             title = "Absen Pulang Sore",
-            message = "Waktunya melakukan presensi/absen pulang sore (16:00)!"
+            message = "Waktunya presensi sore!"
         )
     }
 

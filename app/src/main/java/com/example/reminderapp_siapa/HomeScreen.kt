@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -117,26 +118,26 @@ fun HomeScreen(
     // Logika menentukan target absen selanjutnya & interval awal/akhir untuk progress
     val (nextTitle, nextTargetTime, startTime) = remember(isPagiAttended, isSoreAttended, currentTime) {
         val todayDate = currentTime.toLocalDate()
-        val pagiTarget = LocalDateTime.of(todayDate, LocalTime.of(8, 0))
-        val soreTarget = LocalDateTime.of(todayDate, LocalTime.of(16, 0))
-        val besokPagiTarget = LocalDateTime.of(todayDate.plusDays(1), LocalTime.of(8, 0))
+        val pagiTarget = LocalDateTime.of(todayDate, LocalTime.of(7, 55))
+        val soreTarget = LocalDateTime.of(todayDate, LocalTime.of(16, 30))
+        val besokPagiTarget = LocalDateTime.of(todayDate.plusDays(1), LocalTime.of(7, 55))
 
         if (!isPagiAttended) {
             if (currentTime.isBefore(pagiTarget)) {
-                Triple("Absen Masuk (08:00 WIB)", pagiTarget, LocalDateTime.of(todayDate, LocalTime.of(0, 0)))
+                Triple("Absen Masuk (07:55 WIB)", pagiTarget, LocalDateTime.of(todayDate, LocalTime.of(0, 0)))
             } else if (currentTime.isBefore(soreTarget)) {
-                Triple("Absen Pulang (16:00 WIB)", soreTarget, pagiTarget)
+                Triple("Absen Pulang (16:30 WIB)", soreTarget, pagiTarget)
             } else {
-                Triple("Absen Masuk Besok (08:00 WIB)", besokPagiTarget, soreTarget)
+                Triple("Absen Masuk Besok (07:55 WIB)", besokPagiTarget, soreTarget)
             }
         } else if (!isSoreAttended) {
             if (currentTime.isBefore(soreTarget)) {
-                Triple("Absen Pulang (16:00 WIB)", soreTarget, pagiTarget)
+                Triple("Absen Pulang (16:30 WIB)", soreTarget, pagiTarget)
             } else {
-                Triple("Absen Masuk Besok (08:00 WIB)", besokPagiTarget, soreTarget)
+                Triple("Absen Masuk Besok (07:55 WIB)", besokPagiTarget, soreTarget)
             }
         } else {
-            Triple("Absen Masuk Besok (08:00 WIB)", besokPagiTarget, soreTarget)
+            Triple("Absen Masuk Besok (07:55 WIB)", besokPagiTarget, soreTarget)
         }
     }
 
@@ -205,27 +206,35 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.Top
                     ) {
-                        Column {
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
                             Text(
                                 text = "Halo,",
-                                fontSize = 34.sp,
+                                fontSize = 32.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Black
                             )
+                            val displayName = if (userName.length > 8) "${userName.take(8)}..." else userName
                             Text(
-                                text = userName,
-                                fontSize = 34.sp,
+                                text = displayName,
+                                fontSize = 32.sp,
                                 fontWeight = FontWeight.Light,
-                                color = Color.Black
+                                color = Color.Black,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
+                        Spacer(modifier = Modifier.width(8.dp))
+
                         Row(
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 4.dp)
                         ) {
                             Text(
                                 text = statusLabel,
-                                fontSize = 14.sp,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = statusColor
                             )
@@ -235,7 +244,7 @@ fun HomeScreen(
                                     .size(8.dp)
                                     .background(statusColor, CircleShape)
                             )
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
