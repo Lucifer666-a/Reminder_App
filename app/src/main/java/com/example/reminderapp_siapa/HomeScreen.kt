@@ -115,29 +115,42 @@ fun HomeScreen(
         }
     }
 
-    // Logika menentukan target absen selanjutnya & interval awal/akhir untuk progress
+    // Logika menentukan target absen selanjutnya & interval awal/akhir untuk progress (Dinamis berdasarkan Hari)
     val (nextTitle, nextTargetTime, startTime) = remember(isPagiAttended, isSoreAttended, currentTime) {
         val todayDate = currentTime.toLocalDate()
-        val pagiTarget = LocalDateTime.of(todayDate, LocalTime.of(7, 55))
-        val soreTarget = LocalDateTime.of(todayDate, LocalTime.of(16, 30))
-        val besokPagiTarget = LocalDateTime.of(todayDate.plusDays(1), LocalTime.of(7, 55))
+        val tomorrowDate = todayDate.plusDays(1)
+
+        // Pagi: Senin = 07:45, Hari Lain = 07:55
+        val pagiTime = if (todayDate.dayOfWeek == DayOfWeek.MONDAY) LocalTime.of(7, 45) else LocalTime.of(7, 55)
+        val pagiTarget = LocalDateTime.of(todayDate, pagiTime)
+        val pagiTitle = "Absen Masuk (${pagiTime.format(DateTimeFormatter.ofPattern("HH:mm"))} WIB)"
+
+        // Sore: Jumat = 16:10, Hari Lain = 16:30
+        val soreTime = if (todayDate.dayOfWeek == DayOfWeek.FRIDAY) LocalTime.of(16, 10) else LocalTime.of(16, 30)
+        val soreTarget = LocalDateTime.of(todayDate, soreTime)
+        val soreTitle = "Absen Pulang (${soreTime.format(DateTimeFormatter.ofPattern("HH:mm"))} WIB)"
+
+        // Besok Pagi
+        val besokPagiTime = if (tomorrowDate.dayOfWeek == DayOfWeek.MONDAY) LocalTime.of(7, 45) else LocalTime.of(7, 55)
+        val besokPagiTarget = LocalDateTime.of(tomorrowDate, besokPagiTime)
+        val besokPagiTitle = "Absen Masuk Besok (${besokPagiTime.format(DateTimeFormatter.ofPattern("HH:mm"))} WIB)"
 
         if (!isPagiAttended) {
             if (currentTime.isBefore(pagiTarget)) {
-                Triple("Absen Masuk (07:55 WIB)", pagiTarget, LocalDateTime.of(todayDate, LocalTime.of(0, 0)))
+                Triple(pagiTitle, pagiTarget, LocalDateTime.of(todayDate, LocalTime.of(0, 0)))
             } else if (currentTime.isBefore(soreTarget)) {
-                Triple("Absen Pulang (16:30 WIB)", soreTarget, pagiTarget)
+                Triple(soreTitle, soreTarget, pagiTarget)
             } else {
-                Triple("Absen Masuk Besok (07:55 WIB)", besokPagiTarget, soreTarget)
+                Triple(besokPagiTitle, besokPagiTarget, soreTarget)
             }
         } else if (!isSoreAttended) {
             if (currentTime.isBefore(soreTarget)) {
-                Triple("Absen Pulang (16:30 WIB)", soreTarget, pagiTarget)
+                Triple(soreTitle, soreTarget, pagiTarget)
             } else {
-                Triple("Absen Masuk Besok (07:55 WIB)", besokPagiTarget, soreTarget)
+                Triple(besokPagiTitle, besokPagiTarget, soreTarget)
             }
         } else {
-            Triple("Absen Masuk Besok (07:55 WIB)", besokPagiTarget, soreTarget)
+            Triple(besokPagiTitle, besokPagiTarget, soreTarget)
         }
     }
 
