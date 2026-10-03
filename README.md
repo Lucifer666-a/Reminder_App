@@ -1,47 +1,85 @@
-RemindMe - Smart Attendance & Agency Reminder System
-RemindMe is a modern Android application that has evolved from a local reminder utility into a robust, online agency attendance system. Integrated with a backend server, it features real-time synchronization, advanced anti-manipulation security, and intelligent scheduling to streamline daily institutional operations.
+# RemindMe - Smart Attendance & Reminder System
+
+RemindMe is a smart Android-based attendance and reminder application designed for institutional employees. The application combines online attendance, digital signatures, scheduled reminders, and backend integration to provide a more structured and secure attendance workflow.
+
 ---
-📺 Application Demo Video
-![Watch Demo Video](https://img.shields.io/badge/YouTube-Demo%20Video-red?style=for-the-badge&logo=youtube)
-🚀 Key Features
-🏛️ Online Attendance & Backend Integration
-REST API Integration (Retrofit & OkHttp): Seamlessly connects to the backend server for fetching active meeting topics (`GET`) and submitting attendance records (`POST`).
-Digital Signature & PIN Security: Captures user signatures in Base64 format, protected by mandatory Admin PIN verification.
-Specialized Roll Call (Apel) Sessions: Supports dedicated morning and afternoon roll call submissions with custom session parameters and Ngrok compatibility headers.
-🔐 Security & Anti-Manipulation
-Strict Date Locking (`isToday`): Prevents users from checking in or signing for past or future dates; forms automatically lock when the date does not match today.
-7-Day Identity Protection: Restricts users from changing their full name and job title more than once every 7 days to eliminate "proxy attendance" (joki absen) practices.
-Isolated Digital Canvas: Enforces strict view boundary clipping (`.clipToBounds()`) for digital signatures, rendering clean PNG Bitmaps before encoding.
-⏰ Smart Alarm & Scheduling System
-Dynamic Office Alarms: Automatically adjusts alarm schedules based on institutional office hours (Monday morning roll call, Tuesday–Friday mornings, and afternoon sign-outs).
-Roll Call Silent Mode: Built-in toggle to automatically mute loud alarm rings during official morning and afternoon roll calls to maintain decorum.
-Smart Attendance Detection: Automatically cancels pending alarms if the user has already recorded their attendance in the local SQLite database.
-🎨 User Experience (UI/UX)
-Smart Home Screen & Countdown: Features a flexible countdown timer that automatically transforms into a greeting banner (`"Selamat menikmati hari liburmu! 🎉"`) during weekends.
-Custom Alarm Audio: Allows users to select default alarm tones or custom `.mp3` files from device storage with a non-looping test sound feature (`playSoundOnce`).
-Safe Back-Button Navigation: Implements double-tap confirmation logic on the home screen to prevent accidental app exits.
+
+## 🚀 Key Features
+
+### 📱 Employee Side
+
+* **Online Attendance System:** Employees can submit attendance directly to the institution's backend server through REST API integration.
+* **Meeting/Event Attendance:** Retrieves active meeting or event topics created by administrators and allows employees to submit their attendance.
+* **Digital Signature:** Employees can provide a handwritten digital signature directly from the application.
+* **Apel Attendance:** Dedicated morning and afternoon attendance sessions with automatic session identification.
+* **Date Validation:** Attendance forms are automatically locked when the selected date is not the current date.
+* **Identity Protection:** Name and position information can only be modified once every 7 days.
+* **Smart Attendance Detection:** The application detects existing local attendance records and automatically prevents unnecessary reminder alarms.
+* **Dynamic Countdown:** Displays the remaining time until the next scheduled attendance or reminder.
+* **Custom Alarm Sound:** Users can select between the default alarm or a custom `.mp3` audio file.
+* **Weekend Mode:** Automatically displays a holiday message after the Friday afternoon attendance or during weekends.
+
+### ⏰ Smart Reminder System
+
+* **Dynamic Workday Scheduling:** Alarm times automatically adjust according to the day and attendance schedule.
+* **Monday Morning Reminder:** Scheduled at 07:45 before the 08:00 morning assembly.
+* **Tuesday–Friday Reminder:** Scheduled at 07:55.
+* **Friday Afternoon Reminder:** Scheduled at 16:10.
+* **Monday–Thursday Afternoon Reminder:** Scheduled at 16:30.
+* **Silent Assembly Mode:** Automatically suppresses loud alarm sounds during designated assembly periods.
+* **Alarm Popup:** Uses a dedicated alarm activity instead of relying on notification sounds.
+
+### 🔐 Security & Data Protection
+
+* **Admin PIN Verification:** Meeting attendance requires an administrator-provided PIN before the attendance request is submitted.
+* **Date-Based Attendance Lock:** Prevents attendance submissions for previous or future dates.
+* **7-Day Identity Lock:** Restricts frequent changes to employee identity information.
+* **Base64 Digital Signature:** Converts the user's handwritten signature into a PNG bitmap and encodes it into Base64 before being sent to the backend.
+* **Backend Validation:** Attendance data is submitted directly to the server through protected API endpoints.
+
 ---
-🛠️ Tech Stack
-This application is built using a combination of modern Android development technologies:
-Mobile Language: Kotlin / Java
-Networking & API: Retrofit 2, OkHttp
-Local Database: SQLite
-UI & Graphics: ConstraintLayout, Custom Canvas (Digital Signature rendering)
-Testing Tool: Ngrok (for local backend tunneling)
+
+## 🌐 Backend & API Integration
+
+RemindMe communicates with the backend using REST APIs through Retrofit and OkHttp.
+
+### Available Endpoints
+
+* `GET /api/acara.php` — Retrieves the currently active meeting/event topic.
+* `POST /api/absen.php` — Submits meeting attendance, digital signature, and Admin PIN verification.
+* `POST /api/absen_apel.php` — Submits morning or afternoon assembly attendance.
+
+The application also supports testing through Ngrok using the `ngrok-skip-browser-warning` request header.
+
 ---
-📦 Local Installation & Setup Guide
-Clone the Repository:
-```bash
-   git clone https://github.com/YourUsername/RemindMe.git
-   cd RemindMe
-```
-Open in Android Studio:
-Open Android Studio, select Open an Existing Project, and choose the cloned `RemindMe` folder.
-Configure Backend Base URL:
-Navigate to your API client configuration file and set your server endpoint (or local Ngrok URL).
-Sync Project with Gradle Files:
-Let Android Studio download and sync all required dependencies (Retrofit, OkHttp, etc.).
-Run the Application:
-Connect an Android physical device (with USB debugging enabled) or start an emulator, then click the Run (`Shift + F10`) button in Android Studio.
+
+## 🛠️ Tech Stack
+
+* **Platform:** Android
+* **Programming Language:** Kotlin
+* **Networking:** Retrofit & OkHttp
+* **Local Database:** SQLite
+* **Backend:** REST API
+* **Data Format:** JSON
+* **Digital Signature:** Bitmap → PNG → Base64
+* **Remote Testing:** Ngrok
+
 ---
-© 2026 RemindMe. Built with precision and clean code.
+
+## 📱 User Experience
+
+RemindMe is designed around a simple attendance workflow:
+
+1. Open the application.
+2. View the next attendance/reminder schedule.
+3. Receive an alarm when attendance time approaches.
+4. Open the attendance form.
+5. Complete the required attendance information.
+6. Provide a digital signature when required.
+7. Enter the Admin PIN for meeting attendance.
+8. Submit attendance to the backend.
+9. The application records the attendance locally and updates the home screen.
+
+---
+
+© 2026 RemindMe. Built for smarter and more reliable institutional attendance management.
