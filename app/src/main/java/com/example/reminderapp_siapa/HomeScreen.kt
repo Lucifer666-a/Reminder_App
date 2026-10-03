@@ -65,15 +65,27 @@ fun HomeScreen(
     val isPreview = LocalInspectionMode.current
     val today = remember { LocalDate.now() }
 
+    // State untuk ticking countdown per detik
+    var currentTime by remember { mutableStateOf(LocalDateTime.now()) }
+
+    LaunchedEffect(isPreview) {
+        if (!isPreview) {
+            while (true) {
+                currentTime = LocalDateTime.now()
+                delay(1000L)
+            }
+        }
+    }
+
     // Ambil jam absen dari database lokal (pagi dan sore)
-    val pagiTime = remember(isPreview, today) {
+    val pagiTime = remember(isPreview, today, currentTime.second) {
         if (isPreview) null else {
             val db = AttendanceDatabaseHelper(context)
             db.getPagiAttendanceTime(today)
         }
     }
 
-    val soreTime = remember(isPreview, today) {
+    val soreTime = remember(isPreview, today, currentTime.second) {
         if (isPreview) null else {
             val db = AttendanceDatabaseHelper(context)
             db.getSoreAttendanceTime(today)
@@ -103,17 +115,13 @@ fun HomeScreen(
         }
     }
 
-    // State untuk ticking countdown per detik
-    var currentTime by remember { mutableStateOf(LocalDateTime.now()) }
+    // Cek apakah saat ini Hari Libur (Sabtu, Minggu, atau Jumat setelah jam/selesai absen sore 16:10)
+    val todayDayOfWeek = today.dayOfWeek
+    val isFridayAfterSore = (todayDayOfWeek == DayOfWeek.FRIDAY && (isSoreAttended || currentTime.toLocalTime().isAfter(LocalTime.of(16, 10))))
+    val isSaturday = (todayDayOfWeek == DayOfWeek.SATURDAY)
+    val isSundayDaytime = (todayDayOfWeek == DayOfWeek.SUNDAY && currentTime.hour < 18)
 
-    LaunchedEffect(isPreview) {
-        if (!isPreview) {
-            while (true) {
-                currentTime = LocalDateTime.now()
-                delay(1000L)
-            }
-        }
-    }
+    val isWeekendHoliday = isSaturday || isSundayDaytime || isFridayAfterSore
 
     // Logika menentukan target absen selanjutnya & interval awal/akhir untuk progress (Dinamis berdasarkan Hari)
     val (nextTitle, nextTargetTime, startTime) = remember(isPagiAttended, isSoreAttended, currentTime) {
@@ -130,10 +138,15 @@ fun HomeScreen(
         val soreTarget = LocalDateTime.of(todayDate, soreTime)
         val soreTitle = "Absen Pulang (${soreTime.format(DateTimeFormatter.ofPattern("HH:mm"))} WIB)"
 
-        // Besok Pagi
-        val besokPagiTime = if (tomorrowDate.dayOfWeek == DayOfWeek.MONDAY) LocalTime.of(7, 45) else LocalTime.of(7, 55)
-        val besokPagiTarget = LocalDateTime.of(tomorrowDate, besokPagiTime)
-        val besokPagiTitle = "Absen Masuk Besok (${besokPagiTime.format(DateTimeFormatter.ofPattern("HH:mm"))} WIB)"
+        // Cari hari kerja berikutnya untuk target berikutnya
+        var nextWorkDate = tomorrowDate
+        while (nextWorkDate.dayOfWeek == DayOfWeek.SATURDAY || nextWorkDate.dayOfWeek == DayOfWeek.SUNDAY) {
+            nextWorkDate = nextWorkDate.plusDays(1)
+        }
+        val nextWorkPagiTime = if (nextWorkDate.dayOfWeek == DayOfWeek.MONDAY) LocalTime.of(7, 45) else LocalTime.of(7, 55)
+        val besokPagiTarget = LocalDateTime.of(nextWorkDate, nextWorkPagiTime)
+        val dayName = nextWorkDate.format(DateTimeFormatter.ofPattern("EEEE", Locale.forLanguageTag("id-ID")))
+        val besokPagiTitle = "Absen Masuk $dayName (${nextWorkPagiTime.format(DateTimeFormatter.ofPattern("HH:mm"))} WIB)"
 
         if (!isPagiAttended) {
             if (currentTime.isBefore(pagiTarget)) {
@@ -317,8 +330,12 @@ fun HomeScreen(
 
                         Spacer(modifier = Modifier.height(6.dp))
 
+                        val displayTitle = if (isWeekendHoliday) "Hari Libur (Weekend)" else nextTitle
+                        val displayCountdownText = if (isWeekendHoliday) "Selamat menikmati hari liburmu! 🎉" else countdownText
+                        val displayProgress = if (isWeekendHoliday) 1.0f else progressFloat
+
                         Text(
-                            text = nextTitle,
+                            text = displayTitle,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFF1B4D2E).copy(alpha = 0.85f)
@@ -327,8 +344,8 @@ fun HomeScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
-                            text = countdownText,
-                            fontSize = 20.sp,
+                            text = displayCountdownText,
+                            fontSize = if (isWeekendHoliday) 18.sp else 20.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF0F381D)
                         )
@@ -336,7 +353,7 @@ fun HomeScreen(
                         Spacer(modifier = Modifier.height(10.dp))
 
                         LinearProgressIndicator(
-                            progress = { progressFloat },
+                            progress = { displayProgress },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(6.dp)
