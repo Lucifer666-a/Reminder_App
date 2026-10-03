@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.reminderapp_siapa.ui.theme.Reminderapp_SIAPATheme
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.seconds
 import java.time.DayOfWeek
 import java.time.Duration
 import java.time.LocalDate
@@ -72,7 +73,7 @@ fun HomeScreen(
         if (!isPreview) {
             while (true) {
                 currentTime = LocalDateTime.now()
-                delay(1000L)
+                delay(1.seconds)
             }
         }
     }
