@@ -13,39 +13,28 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.reminderapp_siapa.ui.theme.Reminderapp_SIAPATheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
 
@@ -74,10 +63,10 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Memasang 2 alarm otomatis (08:00 Pagi & 16:00 Sore)
+        // Memasang 2 alarm otomatis (07:45 Pagi & 15:45 Sore)
         ReminderScheduler.setupDefaultAbsenAlarms(this)
 
-        // SharedPreferences untuk menyimpan nama dan jabatan secara permanen di HP
+        // SharedPreferences untuk menyimpan nama, jabatan, dan user_id secara permanen di HP
         val sharedPref = getSharedPreferences("app_user_prefs", MODE_PRIVATE)
         val savedUserName = sharedPref.getString("KEY_USER_NAME", "") ?: ""
         lastSavedName = savedUserName
@@ -108,13 +97,14 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         LoginScreen(
-                            onLoginSuccess = { inputName, inputJabatan ->
+                            onLoginSuccess = { inputUserId, inputName, inputJabatan ->
                                 val finalName = if (inputName.isNotBlank()) inputName else "User"
                                 val finalJabatan = if (inputJabatan.isNotBlank()) inputJabatan else "Pegawai"
                                 userName = finalName
 
-                                // Simpan permanen ke SharedPreferences
+                                // Simpan permanen user_id, nama, dan jabatan ke SharedPreferences
                                 sharedPref.edit()
+                                    .putInt("KEY_USER_ID", inputUserId)
                                     .putString("KEY_USER_NAME", finalName)
                                     .putString("KEY_USER_POSITION", finalJabatan)
                                     .apply()
@@ -124,7 +114,6 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     "home" -> {
-                        // Logika double-tap back untuk keluar aplikasi pada Home Screen
                         BackHandler {
                             val currentTime = System.currentTimeMillis()
                             if (currentTime - backPressedTime < 2000L) {
@@ -152,7 +141,6 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     "look_present" -> {
-                        // Tekan kembali dari Look Present -> kembali ke home
                         BackHandler {
                             currentScreen = "home"
                         }
@@ -166,7 +154,6 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     "gallery" -> {
-                        // Tekan kembali dari Gallery -> kembali ke look_present
                         BackHandler {
                             currentScreen = "look_present"
                         }
@@ -183,25 +170,27 @@ class MainActivity : ComponentActivity() {
         val currentSavedName = sharedPref.getString("KEY_USER_NAME", "") ?: ""
         if (currentSavedName.isNotBlank() && currentSavedName != lastSavedName) {
             lastSavedName = currentSavedName
-            recreate() // Refresh activity agar nama baru dan pengaturan alarm langsung diterapkan
+            recreate()
         }
     }
 }
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (String, String) -> Unit = { _, _ -> }
+    onLoginSuccess: (Int, String, String) -> Unit = { _, _, _ -> }
 ) {
-    var nama by remember { mutableStateOf("") }
-    var jabatan by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
-    // Outer Background Cyan Pastel Soft
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFE6F5FA))
     ) {
-        // Kartu Putih Utama
         Card(
             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -213,27 +202,39 @@ fun LoginScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = 24.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Input TextField Nama (Soft Cyan Capsule)
+                Text(
+                    text = "Login Akun RemindMe",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1C483A)
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "Masuk menggunakan Username/NIP & Password dari admin",
+                    fontSize = 12.sp,
+                    color = Color(0xFF7A97A0)
+                )
+
+                Spacer(modifier = Modifier.height(28.dp))
+
+                // Username / NIP Input
                 OutlinedTextField(
-                    value = nama,
-                    onValueChange = { nama = it },
-                    placeholder = {
-                        Text(
-                            text = "Masukkan Nama....",
-                            color = Color(0xFF7A97A0),
-                            fontSize = 15.sp
-                        )
-                    },
+                    value = username,
+                    onValueChange = { username = it },
+                    placeholder = { Text("Masukkan Username / NIP...", color = Color(0xFF7A97A0), fontSize = 14.sp) },
                     singleLine = true,
                     shape = CircleShape,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = Color(0xFFEDFAFD),
                         unfocusedContainerColor = Color(0xFFEDFAFD),
-                        focusedBorderColor = Color.Transparent,
+                        focusedBorderColor = Color(0xFF1C483A),
                         unfocusedBorderColor = Color.Transparent,
                         focusedTextColor = Color(0xFF1E353F),
                         unfocusedTextColor = Color(0xFF1E353F)
@@ -243,25 +244,21 @@ fun LoginScreen(
                         .height(54.dp)
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Input TextField Jabatan di bawah Nama (Soft Cyan Capsule)
+                // Password Input
                 OutlinedTextField(
-                    value = jabatan,
-                    onValueChange = { jabatan = it },
-                    placeholder = {
-                        Text(
-                            text = "Masukkan Jabatan....",
-                            color = Color(0xFF7A97A0),
-                            fontSize = 15.sp
-                        )
-                    },
+                    value = password,
+                    onValueChange = { password = it },
+                    placeholder = { Text("Masukkan Password...", color = Color(0xFF7A97A0), fontSize = 14.sp) },
                     singleLine = true,
                     shape = CircleShape,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = Color(0xFFEDFAFD),
                         unfocusedContainerColor = Color(0xFFEDFAFD),
-                        focusedBorderColor = Color.Transparent,
+                        focusedBorderColor = Color(0xFF1C483A),
                         unfocusedBorderColor = Color.Transparent,
                         focusedTextColor = Color(0xFF1E353F),
                         unfocusedTextColor = Color(0xFF1E353F)
@@ -273,25 +270,58 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(28.dp))
 
-                // Tombol Login (Soft Cyan Pill Button)
+                // Tombol Submit (POST /absen/api/login.php)
                 Button(
-                    onClick = { onLoginSuccess(nama, jabatan) },
+                    onClick = {
+                        if (username.isBlank() || password.isBlank()) {
+                            Toast.makeText(context, "Username dan Password wajib diisi!", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+
+                        isLoading = true
+                        coroutineScope.launch {
+                            try {
+                                val response = withContext(Dispatchers.IO) {
+                                    ApiClient.apiService.login(LoginRequest(username.trim(), password.trim()))
+                                }
+                                val body = response.body()
+                                if (response.isSuccessful && body?.success != false) {
+                                    Toast.makeText(context, "✅ Login Berhasil!", Toast.LENGTH_SHORT).show()
+                                    val resUserId = body?.userId ?: 1
+                                    val resNama = body?.nama ?: username.trim()
+                                    val resJabatan = body?.jabatan ?: "Pegawai"
+                                    onLoginSuccess(resUserId, resNama, resJabatan)
+                                } else {
+                                    val errMessage = parseErrorMessage(response)
+                                    Toast.makeText(context, "❌ Login Gagal: $errMessage", Toast.LENGTH_LONG).show()
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                Toast.makeText(context, "⚠️ Error Server: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                            } finally {
+                                isLoading = false
+                            }
+                        }
+                    },
+                    enabled = !isLoading,
                     shape = CircleShape,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFE0F7FC)
-                    ),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C483A)),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp),
                     modifier = Modifier
-                        .width(160.dp)
-                        .height(48.dp)
+                        .fillMaxWidth()
+                        .height(50.dp)
                 ) {
-                    Text(
-                        text = "Login",
-                        color = Color(0xFF2B4A55),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(22.dp), color = Color.White, strokeWidth = 2.dp)
+                    } else {
+                        Text(
+                            text = "Masuk (Login)",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                    }
                 }
             }
         }
