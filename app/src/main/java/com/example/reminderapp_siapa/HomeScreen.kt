@@ -1,37 +1,17 @@
 package com.example.reminderapp_siapa
 
+import android.content.Context
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,7 +24,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.reminderapp_siapa.ui.theme.Reminderapp_SIAPATheme
+import com.google.gson.JsonElement
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.seconds
 import java.time.DayOfWeek
 import java.time.Duration
@@ -53,6 +36,92 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+// Helper universal untuk mengekstrak dan memasukkan tanggal riwayat (harian & apel) dari JSON server ke SQLite
+fun syncServerStatusToDb(element: JsonElement?, db: AttendanceDatabaseHelper) {
+    if (element == null) return
+    try {
+        Log.d("SYNC_SERVER", "Response JSON: $element")
+        if (element.isJsonObject) {
+            val obj = element.asJsonObject
+
+            val dataKey = when {
+                obj.has("data") -> "data"
+                obj.has("riwayat_terbaru") -> "riwayat_terbaru"
+                obj.has("history") -> "history"
+                obj.has("rows") -> "rows"
+                obj.has("result") -> "result"
+                obj.has("absensi") -> "absensi"
+                obj.has("presensi_apel") -> "presensi_apel"
+                obj.has("apel") -> "apel"
+                else -> null
+            }
+
+            if (dataKey != null) {
+                syncServerStatusToDb(obj.get(dataKey), db)
+            }
+
+            if (obj.has("pagi_dates") && obj.get("pagi_dates").isJsonArray) {
+                obj.getAsJsonArray("pagi_dates").forEach {
+                    try { db.markAttendancePagi(LocalDate.parse(it.asString.take(10)), "07:55 WIB") } catch (e: Exception) { e.printStackTrace() }
+                }
+            }
+            if (obj.has("sore_dates") && obj.get("sore_dates").isJsonArray) {
+                obj.getAsJsonArray("sore_dates").forEach {
+                    try { db.markAttendanceSore(LocalDate.parse(it.asString.take(10)), "16:30 WIB") } catch (e: Exception) { e.printStackTrace() }
+                }
+            }
+            if (obj.has("apel_pagi_dates") && obj.get("apel_pagi_dates").isJsonArray) {
+                obj.getAsJsonArray("apel_pagi_dates").forEach {
+                    try { db.markApelPagi(LocalDate.parse(it.asString.take(10))) } catch (e: Exception) { e.printStackTrace() }
+                }
+            }
+            if (obj.has("apel_sore_dates") && obj.get("apel_sore_dates").isJsonArray) {
+                obj.getAsJsonArray("apel_sore_dates").forEach {
+                    try { db.markApelSore(LocalDate.parse(it.asString.take(10))) } catch (e: Exception) { e.printStackTrace() }
+                }
+            }
+        } else if (element.isJsonArray) {
+            element.asJsonArray.forEach { item ->
+                if (item.isJsonObject) {
+                    val itemObj = item.asJsonObject
+                    val dateStr = itemObj.get("tanggal")?.asString ?: itemObj.get("date")?.asString ?: itemObj.get("tgl")?.asString
+                    val checkin = itemObj.get("waktu_checkin")?.asString 
+                        ?: itemObj.get("checkin")?.asString 
+                        ?: itemObj.get("jam_masuk")?.asString
+                        ?: itemObj.get("waktu")?.asString
+                    val checkout = itemObj.get("waktu_checkout")?.asString 
+                        ?: itemObj.get("checkout")?.asString 
+                        ?: itemObj.get("jam_keluar")?.asString
+
+                    val jenis = itemObj.get("jenis")?.asString?.lowercase() ?: ""
+                    val sesi = itemObj.get("sesi")?.asString?.lowercase() ?: ""
+
+                    if (!dateStr.isNullOrBlank() && dateStr.lowercase() != "null") {
+                        try {
+                            val cleanDateStr = dateStr.trim().take(10)
+                            val date = LocalDate.parse(cleanDateStr)
+
+                            if (jenis.contains("apel") || sesi.contains("apel")) {
+                                if (jenis.contains("sore") || sesi.contains("sore") || sesi.contains("pulang")) {
+                                    db.markApelSore(date)
+                                } else {
+                                    db.markApelPagi(date)
+                                }
+                            } else if (jenis.contains("sore") || jenis.contains("checkout") || jenis.contains("pulang") || sesi.contains("sore")) {
+                                db.markAttendanceSore(date, checkout ?: checkin ?: "16:30 WIB")
+                            } else {
+                                db.markAttendancePagi(date, checkin ?: "07:55 WIB")
+                            }
+                        } catch (e: Exception) { e.printStackTrace() }
+                    }
+                }
+            }
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
 
 @Composable
 fun HomeScreen(
@@ -66,6 +135,11 @@ fun HomeScreen(
     val isPreview = LocalInspectionMode.current
     val today = remember { LocalDate.now() }
 
+    val sharedPref = remember { context.getSharedPreferences("app_user_prefs", Context.MODE_PRIVATE) }
+    val userId = remember { sharedPref.getInt("KEY_USER_ID", 1) }
+
+    var syncTrigger by remember { mutableStateOf(0) }
+
     // State untuk ticking countdown per detik
     var currentTime by remember { mutableStateOf(LocalDateTime.now()) }
 
@@ -78,15 +152,46 @@ fun HomeScreen(
         }
     }
 
+    // Narik riwayat & status harian dari server (GET /absen/api/user_status.php?user_id=X)
+    LaunchedEffect(userId) {
+        if (!isPreview) {
+            withContext(Dispatchers.IO) {
+                try {
+                    val db = AttendanceDatabaseHelper(context)
+
+                    val responseStatus = ApiClient.apiService.getUserStatus(userId)
+                    if (responseStatus.isSuccessful && responseStatus.body() != null) {
+                        syncServerStatusToDb(responseStatus.body(), db)
+                    }
+
+                    try {
+                        val responseHarian = ApiClient.apiService.getAbsenHarian(userId)
+                        if (responseHarian.isSuccessful && responseHarian.body() != null) {
+                            syncServerStatusToDb(responseHarian.body(), db)
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
+                    withContext(Dispatchers.Main) {
+                        syncTrigger++
+                    }
+                }
+            }
+        }
+    }
+
     // Ambil jam absen dari database lokal (pagi dan sore)
-    val pagiTime = remember(isPreview, today, currentTime.second) {
+    val pagiTime = remember(isPreview, today, currentTime.second, syncTrigger) {
         if (isPreview) null else {
             val db = AttendanceDatabaseHelper(context)
             db.getPagiAttendanceTime(today)
         }
     }
 
-    val soreTime = remember(isPreview, today, currentTime.second) {
+    val soreTime = remember(isPreview, today, currentTime.second, syncTrigger) {
         if (isPreview) null else {
             val db = AttendanceDatabaseHelper(context)
             db.getSoreAttendanceTime(today)
@@ -100,7 +205,7 @@ fun HomeScreen(
     val monday = remember(today) { today.with(DayOfWeek.MONDAY) }
     val sunday = remember(today) { today.with(DayOfWeek.SUNDAY) }
 
-    val pagiWeeklyCount = remember(isPreview, today) {
+    val pagiWeeklyCount = remember(isPreview, today, currentTime.second, syncTrigger) {
         if (isPreview) 4 else {
             val db = AttendanceDatabaseHelper(context)
             val dates = db.getAllPagiAttendanceDates()
@@ -108,7 +213,7 @@ fun HomeScreen(
         }
     }
 
-    val soreWeeklyCount = remember(isPreview, today) {
+    val soreWeeklyCount = remember(isPreview, today, currentTime.second, syncTrigger) {
         if (isPreview) 3 else {
             val db = AttendanceDatabaseHelper(context)
             val dates = db.getAllSoreAttendanceDates()
@@ -129,17 +234,14 @@ fun HomeScreen(
         val todayDate = currentTime.toLocalDate()
         val tomorrowDate = todayDate.plusDays(1)
 
-        // Pagi: Senin = 07:45, Hari Lain = 07:55
-        val pagiTime = if (todayDate.dayOfWeek == DayOfWeek.MONDAY) LocalTime.of(7, 45) else LocalTime.of(7, 55)
-        val pagiTarget = LocalDateTime.of(todayDate, pagiTime)
-        val pagiTitle = "Absen Masuk (${pagiTime.format(DateTimeFormatter.ofPattern("HH:mm"))} WIB)"
+        val pagiTimeTarget = if (todayDate.dayOfWeek == DayOfWeek.MONDAY) LocalTime.of(7, 45) else LocalTime.of(7, 55)
+        val pagiTarget = LocalDateTime.of(todayDate, pagiTimeTarget)
+        val pagiTitle = "Absen Masuk (${pagiTimeTarget.format(DateTimeFormatter.ofPattern("HH:mm"))} WIB)"
 
-        // Sore: Jumat = 16:10, Hari Lain = 16:30
-        val soreTime = if (todayDate.dayOfWeek == DayOfWeek.FRIDAY) LocalTime.of(16, 10) else LocalTime.of(16, 30)
-        val soreTarget = LocalDateTime.of(todayDate, soreTime)
-        val soreTitle = "Absen Pulang (${soreTime.format(DateTimeFormatter.ofPattern("HH:mm"))} WIB)"
+        val soreTimeTarget = if (todayDate.dayOfWeek == DayOfWeek.FRIDAY) LocalTime.of(16, 10) else LocalTime.of(16, 30)
+        val soreTarget = LocalDateTime.of(todayDate, soreTimeTarget)
+        val soreTitle = "Absen Pulang (${soreTimeTarget.format(DateTimeFormatter.ofPattern("HH:mm"))} WIB)"
 
-        // Cari hari kerja berikutnya untuk target berikutnya
         var nextWorkDate = tomorrowDate
         while (nextWorkDate.dayOfWeek == DayOfWeek.SATURDAY || nextWorkDate.dayOfWeek == DayOfWeek.SUNDAY) {
             nextWorkDate = nextWorkDate.plusDays(1)
@@ -193,7 +295,6 @@ fun HomeScreen(
         }
     }
 
-    // Format Hari & Tanggal
     val dayOfWeek = today.dayOfWeek
     val isWorkingDay = dayOfWeek != DayOfWeek.SATURDAY && dayOfWeek != DayOfWeek.SUNDAY
     val statusLabel = if (isWorkingDay) "Hari Kerja" else "Hari Libur"
@@ -204,7 +305,6 @@ fun HomeScreen(
         today.format(DateTimeFormatter.ofPattern("MMMM", Locale.forLanguageTag("id-ID")))
     }
 
-    // Root Container dengan Background Cyan Pastel Terang
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -215,7 +315,6 @@ fun HomeScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
-            // 1. HEADER HERO UTAMA ATAS (PUTIH LEBAR SAMPAI UJUNG)
             Card(
                 shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -227,7 +326,6 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .padding(start = 24.dp, end = 24.dp, top = 72.dp, bottom = 36.dp)
                 ) {
-                    // Row Atas: Halo Admin & Status Hari Kerja
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -286,7 +384,6 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(48.dp))
 
-                    // Tanggal Besar (Angka & Bulan) Dikebwahin Lagi
                     Text(
                         text = dayNumberStr,
                         fontSize = 76.sp,
@@ -303,14 +400,12 @@ fun HomeScreen(
                 }
             }
 
-            // KONTEN BAWAH (DENGAN PADDING SAMPING)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // 2. KARTU TENGAH (HIJAU MUDA) - Status Absen & Countdown
                 Card(
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF98D882)),
@@ -365,12 +460,10 @@ fun HomeScreen(
                     }
                 }
 
-                // 3. GRID BAWAH (2 KOLOM: Kiri Riwayat, Kanan Absen Masuk & Pulang)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    // Kolom Kiri: Riwayat Absen (Hijau Tua Pekat)
                     Card(
                         shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.cardColors(containerColor = Color(0xFF1C483A)),
@@ -395,7 +488,6 @@ fun HomeScreen(
                             Column(
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                // Stat 1: Pagi
                                 Column {
                                     Text(
                                         text = "Absen Masuk",
@@ -410,7 +502,6 @@ fun HomeScreen(
                                     )
                                 }
 
-                                // Stat 2: Sore
                                 Column {
                                     Text(
                                         text = "Absen Pulang",
@@ -441,12 +532,10 @@ fun HomeScreen(
                         }
                     }
 
-                    // Kolom Kanan: 2 Card Bertumpuk (Absen Masuk & Absen Pulang)
                     Column(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Card Absen Masuk (Teal Green)
                         Card(
                             shape = RoundedCornerShape(20.dp),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFF0A9376)),
@@ -489,7 +578,6 @@ fun HomeScreen(
                             }
                         }
 
-                        // Card Absen Pulang (Emerald Green)
                         Card(
                             shape = RoundedCornerShape(20.dp),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFF18A86C)),
@@ -534,7 +622,6 @@ fun HomeScreen(
                     }
                 }
 
-                // Tombol Akses Cepat di Bagian Bawah
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
