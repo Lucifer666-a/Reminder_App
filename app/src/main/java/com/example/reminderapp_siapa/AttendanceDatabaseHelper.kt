@@ -108,6 +108,22 @@ class AttendanceDatabaseHelper(context: Context) : SQLiteOpenHelper(
         onCreate(db)
     }
 
+    // --- HAPUS SEMUA CACHE LOKAL (SAAT LOGOUT) ---
+    fun clearAllData() {
+        val db = writableDatabase
+        try {
+            db.execSQL("DELETE FROM $TABLE_ABSEN_PAGI")
+            db.execSQL("DELETE FROM $TABLE_ABSEN_SORE")
+            db.execSQL("DELETE FROM $TABLE_APEL_PAGI")
+            db.execSQL("DELETE FROM $TABLE_APEL_SORE")
+            db.execSQL("DELETE FROM $TABLE_ABSEN_RAPAT")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            db.close()
+        }
+    }
+
     // --- ABSEN REGULER PAGI ---
 
     fun markAttendancePagi(

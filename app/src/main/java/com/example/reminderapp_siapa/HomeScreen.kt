@@ -1,6 +1,7 @@
 package com.example.reminderapp_siapa
 
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -37,7 +38,7 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-// Helper universal untuk mengekstrak dan memasukkan tanggal riwayat (harian & apel) dari JSON server ke SQLite
+// Helper universal untuk mengekstrak dan memasukkan tanggal riwayat (harian & apel secara spesifik) ke SQLite
 fun syncServerStatusToDb(element: JsonElement?, db: AttendanceDatabaseHelper) {
     if (element == null) return
     try {
@@ -97,21 +98,28 @@ fun syncServerStatusToDb(element: JsonElement?, db: AttendanceDatabaseHelper) {
                     val jenis = itemObj.get("jenis")?.asString?.lowercase() ?: ""
                     val sesi = itemObj.get("sesi")?.asString?.lowercase() ?: ""
 
+                    // Jangan biarkan absen rapat (absen.php) tercampur ke absensi harian pagi/sore!
+                    if (jenis.contains("rapat") || jenis.contains("acara") || sesi.contains("rapat")) {
+                        return@forEach
+                    }
+
                     if (!dateStr.isNullOrBlank() && dateStr.lowercase() != "null") {
                         try {
                             val cleanDateStr = dateStr.trim().take(10)
                             val date = LocalDate.parse(cleanDateStr)
 
-                            if (jenis.contains("apel") || sesi.contains("apel")) {
-                                if (jenis.contains("sore") || sesi.contains("sore") || sesi.contains("pulang")) {
-                                    db.markApelSore(date)
-                                } else {
-                                    db.markApelPagi(date)
-                                }
-                            } else if (jenis.contains("sore") || jenis.contains("checkout") || jenis.contains("pulang") || sesi.contains("sore")) {
-                                db.markAttendanceSore(date, checkout ?: checkin ?: "16:30 WIB")
+                            val isSore = jenis.contains("sore") || jenis.contains("checkout") || jenis.contains("pulang") || sesi.contains("sore") || !checkout.isNullOrBlank()
+                            val isPagi = jenis.contains("pagi") || jenis.contains("checkin") || jenis.contains("masuk") || sesi.contains("pagi") || !checkin.isNullOrBlank()
+
+                            if (jenis.contains("apel")) {
+                                if (isSore) db.markApelSore(date) else db.markApelPagi(date)
                             } else {
-                                db.markAttendancePagi(date, checkin ?: "07:55 WIB")
+                                if (isSore && checkout != null) {
+                                    db.markAttendanceSore(date, checkout)
+                                }
+                                if (isPagi && checkin != null) {
+                                    db.markAttendancePagi(date, checkin)
+                                }
                             }
                         } catch (e: Exception) { e.printStackTrace() }
                     }
@@ -137,6 +145,50 @@ fun HomeScreen(
 
     val sharedPref = remember { context.getSharedPreferences("app_user_prefs", Context.MODE_PRIVATE) }
     val userId = remember { sharedPref.getInt("KEY_USER_ID", 1) }
+
+    // Dialog konfirmasi "Sudah absen di web resmi?" saat pegawai kembali ke aplikasi
+    var showWaitingConfirmationDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        val status = sharedPref.getString("KEY_ATTENDANCE_STATUS_TODAY", "")
+        if (status == "MENUNGGU_KONFIRMASI") {
+            showWaitingConfirmationDialog = true
+        }
+    }
+
+    if (showWaitingConfirmationDialog) {
+        AlertDialog(
+            onDismissRequest = { showWaitingConfirmationDialog = false },
+            title = { Text("Konfirmasi Absensi", fontWeight = FontWeight.Bold, color = Color(0xFF1C483A)) },
+            text = { Text("Sudah absen di web resmi?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showWaitingConfirmationDialog = false
+                        sharedPref.edit().remove("KEY_ATTENDANCE_STATUS_TODAY").apply()
+                        val session = sharedPref.getString("KEY_ATTENDANCE_SESSION", "pagi") ?: "pagi"
+                        val photoType = if (session == "pagi") "PAGI" else "SORE"
+                        val intent = Intent(context, CameraActivity::class.java).apply {
+                            putExtra("EXTRA_PHOTO_TYPE", photoType)
+                        }
+                        context.startActivity(intent)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C483A)),
+                    shape = CircleShape
+                ) {
+                    Text("Sudah (Ambil Foto)")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showWaitingConfirmationDialog = false }
+                ) {
+                    Text("Belum / Tetap Menunggu", color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold)
+                }
+            },
+            shape = RoundedCornerShape(24.dp)
+        )
+    }
 
     var syncTrigger by remember { mutableStateOf(0) }
 

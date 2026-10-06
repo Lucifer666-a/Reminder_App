@@ -19,6 +19,15 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         val message = intent.getStringExtra("EXTRA_MESSAGE") ?: "Waktunya melakukan presensi/absen!"
         val notificationId = intent.getIntExtra("EXTRA_ID", 1001)
 
+        // Jika ini adalah Alarm Susulan / Follow-up (ID 999) -> Munculkan Notifikasi Saja Tanpa Alarm Berdering
+        if (notificationId == 999) {
+            val sharedPref = context.getSharedPreferences("app_user_prefs", Context.MODE_PRIVATE)
+            sharedPref.edit().putString("KEY_ATTENDANCE_STATUS_TODAY", "MENUNGGU_KONFIRMASI").apply()
+
+            showNotification(context, title, message, notificationId, false)
+            return
+        }
+
         // Jadwalkan ulang alarm berikutnya secara otomatis
         ReminderScheduler.scheduleReminder(context, notificationId, title, message)
 

@@ -107,7 +107,18 @@ class AlarmTriggerActivity : ComponentActivity() {
                         val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
                         notificationManager.cancelAll()
 
-                        // Jump to Web Link (https://sikep.mahkamahagung.go.id/site/login)
+                        // Simpan status MENUNGGU_KONFIRMASI ke SharedPreferences
+                        val sharedPref = getSharedPreferences("app_user_prefs", MODE_PRIVATE)
+                        val sessionKey = if (currentHour < 12) "pagi" else "sore"
+                        sharedPref.edit()
+                            .putString("KEY_ATTENDANCE_STATUS_TODAY", "MENUNGGU_KONFIRMASI")
+                            .putString("KEY_ATTENDANCE_SESSION", sessionKey)
+                            .apply()
+
+                        // Jadwalkan alarm susulan 5 menit kemudian
+                        ReminderScheduler.scheduleFollowUpAlarm(this)
+
+                        // Buka web resmi
                         try {
                             val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://sikep.mahkamahagung.go.id/site/login")).apply {
                                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
