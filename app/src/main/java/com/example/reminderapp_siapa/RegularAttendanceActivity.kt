@@ -435,20 +435,19 @@ fun RegularAttendanceScreen(
                             isSubmitting = true
                             coroutineScope.launch {
                                 try {
+                                    val userId = sharedPref.getInt("KEY_USER_ID", 1)
                                     val signatureBitmap = createSignatureBitmap(strokes, selectedColor)
                                     val signatureBase64 = bitmapToBase64(signatureBitmap)
+                                    val signaturePayload = "data:image/png;base64,$signatureBase64"
 
-                                    val colorName = if (selectedColor == Color.Black) "Hitam" else "Merah"
-                                    val sesiValue = if (attendanceType == "APEL_PAGI" || attendanceType == "PAGI") "Pagi" else "Sore"
+                                    val isMorning = attendanceType == "APEL_PAGI" || attendanceType == "PAGI"
+                                    val aksiValue = if (isMorning) "checkin" else "checkout"
+                                    val sesiValue = if (isMorning) "pagi" else "sore"
                                     val request = ApelAbsenRequest(
-                                        nama = nama,
-                                        jabatan = jabatan,
-                                        acara = namaAcara,
+                                        userId = userId,
+                                        aksi = aksiValue,
                                         sesi = sesiValue,
-                                        signature = signatureBase64,
-                                        color = colorName,
-                                        date = targetDate.toString(),
-                                        time = LocalTime.now().toString()
+                                        tandaTangan = signaturePayload
                                     )
 
                                     // Kirim POST ke absen_apel.php (Tanpa PIN)

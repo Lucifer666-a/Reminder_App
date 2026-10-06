@@ -400,6 +400,30 @@ fun SettingsScreen(
                             fontSize = 15.sp
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Tombol Logout / Keluar Akun
+                    OutlinedButton(
+                        onClick = {
+                            sharedPref.edit()
+                                .remove("KEY_USER_NAME")
+                                .remove("KEY_USER_POSITION")
+                                .apply()
+
+                            AlarmSoundPlayer.stopSound()
+                            Toast.makeText(context, "Berhasil Keluar Akun", Toast.LENGTH_SHORT).show()
+                            val intent = Intent(context, MainActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            }
+                            context.startActivity(intent)
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("🚪 Keluar Akun (Logout)", fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F))
+                    }
                 }
             }
         }

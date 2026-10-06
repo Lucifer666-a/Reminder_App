@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import com.example.reminderapp_siapa.ui.theme.Reminderapp_SIAPATheme
 import com.google.gson.Gson
 import com.google.gson.JsonElement
+import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -72,7 +73,7 @@ data class SignaturePath(
     val strokeWidth: Float = 6f
 )
 
-// Helper universal untuk membaca event dari format JSON apa pun (Object, Array, atau String)
+// Helper universal untuk membaca nama event dari format JSON apa pun
 fun parseEventFromJson(element: JsonElement?): String? {
     if (element == null) return null
     try {
@@ -104,15 +105,48 @@ fun parseEventFromJson(element: JsonElement?): String? {
     return null
 }
 
-// Helper untuk mengekstrak pesan error bersih dari errorBody server (misal 401 Unauthorized / Wrong PIN)
+// Helper universal untuk mengekstrak ID acara aktif dari JSON
+fun parseEventIdFromJson(element: JsonElement?): Int? {
+    if (element == null) return null
+    try {
+        if (element.isJsonObject) {
+            val obj = element.asJsonObject
+            val keys = listOf("acara_id", "id_acara", "id", "event_id")
+            for (key in keys) {
+                if (obj.has(key) && !obj.get(key).isJsonNull) {
+                    return obj.get(key).asInt
+                }
+            }
+            if (obj.has("data") && !obj.get("data").isJsonNull) {
+                return parseEventIdFromJson(obj.get("data"))
+            }
+        } else if (element.isJsonArray) {
+            val arr = element.asJsonArray
+            if (arr.size() > 0) {
+                return parseEventIdFromJson(arr.get(0))
+            }
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+    return null
+}
+
+// Helper untuk mengekstrak pesan error bersih dari errorBody server
 fun parseErrorMessage(response: Response<*>?): String {
     if (response == null) return "Terjadi kesalahan pada server"
     try {
         val errorBodyStr = response.errorBody()?.string()
         if (!errorBodyStr.isNullOrBlank()) {
-            val errorResponse = Gson().fromJson(errorBodyStr, AbsenResponse::class.java)
-            if (!errorResponse?.message.isNullOrBlank()) {
-                return errorResponse.message
+            val jsonObject = Gson().fromJson(errorBodyStr, JsonObject::class.java)
+            if (jsonObject.has("message") && !jsonObject.get("message").isJsonNull) {
+                return jsonObject.get("message").asString
+            }
+            if (jsonObject.has("error") && !jsonObject.get("error").isJsonNull) {
+                return jsonObject.get("error").asString
+            }
+            if (jsonObject.has("status") && !jsonObject.get("status").isJsonNull) {
+                return jsonObject.get("status").asString
             }
         }
     } catch (e: Exception) {
@@ -125,7 +159,7 @@ fun parseErrorMessage(response: Response<*>?): String {
 fun createSignatureBitmap(strokes: List<List<Offset>>, color: Color, width: Int = 600, height: Int = 200): Bitmap {
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
-    canvas.drawColor(android.graphics.Color.WHITE) // Background putih bersih
+    canvas.drawColor(android.graphics.Color.WHITE)
 
     val paint = Paint().apply {
         isAntiAlias = true
@@ -175,8 +209,9 @@ fun MeetingAttendanceScreen(
     val nama by remember { mutableStateOf(savedUserName) }
     val jabatan by remember { mutableStateOf(savedUserPosition) }
 
-    // State untuk Nama Acara / Topik Rapat (diambil otomatis dari GET /api/acara.php)
+    // State untuk Nama & ID Acara Rapat (diambil otomatis dari GET /api/acara.php)
     var namaAcara by remember { mutableStateOf("Memuat Acara Aktif...") }
+    var currentAcaraId by remember { mutableStateOf<Int?>(null) }
     var isAcaraLoading by remember { mutableStateOf(true) }
 
     // Ambil daftar/acara aktif dari backend PHP (acara.php) saat pertama kali dibuka
@@ -188,8 +223,10 @@ fun MeetingAttendanceScreen(
             if (response.isSuccessful) {
                 val element = response.body()
                 val serverAcara = parseEventFromJson(element)
+                val serverAcaraId = parseEventIdFromJson(element)
                 if (!serverAcara.isNullOrBlank()) {
                     namaAcara = serverAcara
+                    currentAcaraId = serverAcaraId
                 } else {
                     namaAcara = "Tidak ada acara aktif (Belum dibuat admin)"
                 }
@@ -287,7 +324,7 @@ fun MeetingAttendanceScreen(
                         OutlinedTextField(
                             value = namaAcara,
                             onValueChange = {},
-                            enabled = false, // Tidak bisa diubah oleh user
+                            enabled = false,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -376,7 +413,7 @@ fun MeetingAttendanceScreen(
                                 .background(Color(0xFFFAFAFA), RoundedCornerShape(14.dp))
                                 .border(1.dp, Color(0xFFC0E0D5), RoundedCornerShape(14.dp))
                                 .clip(RoundedCornerShape(14.dp))
-                                .clipToBounds() // Mencegah coretan keluar dari area box tanda tangan
+                                .clipToBounds()
                                 .pointerInput(selectedColor) {
                                     detectDragGestures(
                                         onDragStart = { offset ->
@@ -386,7 +423,6 @@ fun MeetingAttendanceScreen(
                                         },
                                         onDrag = { change, _ ->
                                             val pos = change.position
-                                            // Batasi koordinat strictly di dalam box
                                             if (pos.x >= 0 && pos.y >= 0 && pos.x <= size.width && pos.y <= size.height) {
                                                 currentStroke.add(pos)
                                                 change.consume()
@@ -439,7 +475,7 @@ fun MeetingAttendanceScreen(
                         }
                     }
 
-                    // Pemilihan Warna Tanda Tangan (Di bawah kolom tanda tangan, hanya Hitam & Merah)
+                    // Pemilihan Warna Tanda Tangan (Hitam & Merah)
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             text = "Pilih Warna Tanda Tangan",
@@ -526,19 +562,16 @@ fun MeetingAttendanceScreen(
                             isSubmitting = true
                             coroutineScope.launch {
                                 try {
+                                    val userId = sharedPref.getInt("KEY_USER_ID", 1)
                                     val signatureBitmap = createSignatureBitmap(strokes, selectedColor)
                                     val signatureBase64 = bitmapToBase64(signatureBitmap)
+                                    val signaturePayload = "data:image/png;base64,$signatureBase64"
 
-                                    val colorName = if (selectedColor == Color.Black) "Hitam" else "Merah"
                                     val request = AbsenRequest(
-                                        nama = nama,
-                                        jabatan = jabatan,
-                                        acara = namaAcara,
-                                        signature = signatureBase64,
-                                        color = colorName,
+                                        userId = userId,
                                         pin = pin,
-                                        date = LocalDate.now().toString(),
-                                        time = LocalTime.now().toString()
+                                        acaraId = currentAcaraId, // ID acara dinamis dari GET /api/acara.php!
+                                        tandaTangan = signaturePayload
                                     )
 
                                     // Kirim POST ke absen.php
@@ -560,7 +593,6 @@ fun MeetingAttendanceScreen(
                                             Toast.makeText(context, "❌ Gagal: ${responseBody.message ?: "PIN Salah"}", Toast.LENGTH_LONG).show()
                                         }
                                     } else {
-                                        // Parse pesan error bersih dari errorBody server (misal 401 Unauthorized / Wrong PIN)
                                         val cleanError = parseErrorMessage(response)
                                         Toast.makeText(context, "❌ $cleanError", Toast.LENGTH_LONG).show()
                                     }
