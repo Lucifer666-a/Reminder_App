@@ -248,7 +248,7 @@ fun SettingsScreen(
                                     color = Color(0xFF1C483A)
                                 )
                                 Text(
-                                    text = "Meredam alarm otomatis saat jam Apel Pagi (Senin 07:45) & Apel Sore (Jumat 15:45)",
+                                    text = "Meredam alarm otomatis saat jam Apel Pagi (Senin 07:45) & Apel Sore (Jumat 16:10)",
                                     fontSize = 12.sp,
                                     color = Color(0xFF555555)
                                 )

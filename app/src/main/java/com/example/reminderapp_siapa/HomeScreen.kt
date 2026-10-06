@@ -691,7 +691,7 @@ fun HomeScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(
-                                text = "Look Present",
+                                text = "Absen Apel",
                                 color = Color(0xFF1C483A),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp
@@ -706,7 +706,7 @@ fun HomeScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(
-                                text = "✍️ Absen Rapat",
+                                text = "✍Absen Rapat",
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp
@@ -722,7 +722,7 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "🌐 Jump to Web",
+                            text = "🌐 Menuju Web Resmi",
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
