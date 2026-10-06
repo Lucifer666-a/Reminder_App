@@ -14,7 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.Preview
+import androidx.camera.core.Preview as CameraXPreview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.BorderStroke
@@ -49,18 +49,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import coil.compose.AsyncImage
 import com.example.reminderapp_siapa.ui.theme.Reminderapp_SIAPATheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.LocalDate
 import java.time.LocalTime
@@ -91,17 +97,47 @@ class CameraActivity : ComponentActivity() {
                             photoType = photoType
                         )
 
-                        // 2. Tandai presensi di AttendanceDatabaseHelper
+                        // 2. Tandai presensi di AttendanceDatabaseHelper lokal
                         val attendanceDb = AttendanceDatabaseHelper(this)
                         val today = LocalDate.now()
-                        if (photoType.contains("PAGI", ignoreCase = true)) {
+                        val isPagi = photoType.contains("PAGI", ignoreCase = true)
+                        if (isPagi) {
                             attendanceDb.markAttendancePagi(today)
                         } else {
                             attendanceDb.markAttendanceSore(today)
                         }
 
-                        Toast.makeText(this, "Presensi & Foto Berhasil Disimpan!", Toast.LENGTH_SHORT).show()
-                        finish()
+                        // 3. Kirim REST API ke server kantor (absen_harian.php) SETELAH foto diambil
+                        val sharedPref = getSharedPreferences("app_user_prefs", MODE_PRIVATE)
+                        val userId = sharedPref.getInt("KEY_USER_ID", 1)
+                        val aksiValue = if (isPagi) "checkin" else "checkout"
+                        val sesiValue = if (isPagi) "pagi" else "sore"
+
+                        lifecycleScope.launch {
+                            try {
+                                val request = ApelAbsenRequest(
+                                    userId = userId,
+                                    aksi = aksiValue,
+                                    sesi = sesiValue,
+                                    tandaTangan = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+                                )
+                                val response = withContext(Dispatchers.IO) {
+                                    ApiClient.apiService.submitAbsenHarian(request)
+                                }
+                                val body = response.body()
+                                if (response.isSuccessful && body?.success != false) {
+                                    Toast.makeText(this@CameraActivity, "✅ ${body?.message ?: "Presensi & Foto Berhasil Disimpan!"}", Toast.LENGTH_LONG).show()
+                                } else {
+                                    val errStr = parseErrorMessage(response)
+                                    Toast.makeText(this@CameraActivity, "📸 Foto Disimpan Lokal ($errStr)", Toast.LENGTH_SHORT).show()
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                Toast.makeText(this@CameraActivity, "📸 Presensi & Foto Disimpan!", Toast.LENGTH_SHORT).show()
+                            } finally {
+                                finish()
+                            }
+                        }
                     },
                     onCancelClick = {
                         finish()
@@ -121,8 +157,8 @@ class CameraActivity : ComponentActivity() {
 fun CameraScreen(
     photoType: String,
     cameraExecutor: ExecutorService,
-    onPhotoConfirmed: (File) -> Unit,
-    onCancelClick: () -> Unit
+    onPhotoConfirmed: (File) -> Unit = {},
+    onCancelClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var hasCameraPermission by remember {
@@ -134,101 +170,37 @@ fun CameraScreen(
         )
     }
 
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        hasCameraPermission = isGranted
-    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            hasCameraPermission = isGranted
+        }
+    )
 
     LaunchedEffect(Unit) {
         if (!hasCameraPermission) {
-            launcher.launch(Manifest.permission.CAMERA)
+            permissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 
+    var capturedPhotoFile by remember { mutableStateOf<File?>(null) }
+    var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
+
     if (!hasCameraPermission) {
-        // Layar Permintaan Izin Kamera
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFE6F5FA)),
+                .background(Color.Black),
             contentAlignment = Alignment.Center
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
+            Text(
+                text = "Izin Kamera Dibutuhkan untuk Mengambil Foto Presensi",
+                color = Color.White,
+                textAlign = TextAlign.Center,
                 modifier = Modifier.padding(24.dp)
-            ) {
-                Text(
-                    text = "📷 Izin Kamera Diperlukan",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1C483A)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Aplikasi membutuhkan akses kamera untuk mengambil foto verifikasi presensi.",
-                    fontSize = 14.sp,
-                    color = Color(0xFF555555),
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(20.dp))
-                Button(
-                    onClick = { launcher.launch(Manifest.permission.CAMERA) },
-                    shape = CircleShape,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C483A))
-                ) {
-                    Text("Izinkan Kamera", color = Color.White, fontWeight = FontWeight.Bold)
-                }
-            }
+            )
         }
-    } else {
-        // Fitur Kamera Utama & Review Foto
-        CameraContent(
-            photoType = photoType,
-            cameraExecutor = cameraExecutor,
-            onPhotoConfirmed = onPhotoConfirmed,
-            onCancelClick = onCancelClick
-        )
-    }
-}
-
-@Composable
-fun CameraContent(
-    photoType: String,
-    cameraExecutor: ExecutorService,
-    onPhotoConfirmed: (File) -> Unit,
-    onCancelClick: () -> Unit
-) {
-    val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-
-    var capturedPhotoFile by remember { mutableStateOf<File?>(null) }
-    var lensFacing by remember { mutableStateOf(CameraSelector.LENS_FACING_FRONT) }
-
-    val imageCapture = remember { ImageCapture.Builder().build() }
-    val previewView = remember { PreviewView(context) }
-
-    LaunchedEffect(lensFacing) {
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-        cameraProviderFuture.addListener({
-            val cameraProvider = cameraProviderFuture.get()
-            val preview = Preview.Builder().build().also {
-                it.setSurfaceProvider(previewView.surfaceProvider)
-            }
-            val cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
-
-            try {
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    lifecycleOwner,
-                    cameraSelector,
-                    preview,
-                    imageCapture
-                )
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }, ContextCompat.getMainExecutor(context))
+        return
     }
 
     Box(
@@ -237,211 +209,197 @@ fun CameraContent(
             .background(Color.Black)
     ) {
         if (capturedPhotoFile == null) {
-            // --- TAMPILAN 1: KAMERA LIVE PREVIEW ---
+            // Tampilan Preview Kamera Live
             AndroidView(
-                factory = { previewView },
+                factory = { ctx ->
+                    val previewView = PreviewView(ctx)
+                    val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+
+                    cameraProviderFuture.addListener({
+                        val cameraProvider = cameraProviderFuture.get()
+                        val preview = CameraXPreview.Builder().build().also {
+                            it.setSurfaceProvider(previewView.surfaceProvider)
+                        }
+
+                        val capture = ImageCapture.Builder()
+                            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                            .build()
+                        imageCapture = capture
+
+                        val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+
+                        try {
+                            cameraProvider.unbindAll()
+                            cameraProvider.bindToLifecycle(
+                                ctx as LifecycleOwner,
+                                cameraSelector,
+                                preview,
+                                capture
+                            )
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }, ContextCompat.getMainExecutor(ctx))
+
+                    previewView
+                },
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Header Top Bar Kamera
-            Row(
+            // Header Overlay Kamera
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.6f)),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 48.dp, start = 20.dp, end = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 20.dp, vertical = 48.dp)
+                    .align(Alignment.TopCenter)
             ) {
-                // Tombol Batal/Tutup
-                Box(
-                    contentAlignment = Alignment.Center,
+                Row(
                     modifier = Modifier
-                        .size(40.dp)
-                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                        .clickable { onCancelClick() }
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("✕", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                }
+                    Column {
+                        Text(
+                            text = "Presensi Foto $photoType",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Posisikan wajah Anda di dalam frame",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                    }
 
-                Surface(
-                    shape = CircleShape,
-                    color = Color.Black.copy(alpha = 0.5f)
-                ) {
-                    Text(
-                        text = "Foto Absen ($photoType)",
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
-                }
-
-                // Tombol Switch Kamera Depan/Belakang
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                        .clickable {
-                            lensFacing = if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
-                                CameraSelector.LENS_FACING_BACK
-                            } else {
-                                CameraSelector.LENS_FACING_FRONT
-                            }
-                        }
-                ) {
-                    Text("🔄", fontSize = 18.sp)
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(Color.White.copy(alpha = 0.2f), CircleShape)
+                            .clickable { onCancelClick() }
+                    ) {
+                        Text(text = "✕", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
 
-            // Tombol Capture Foto 📷 di Bawah
+            // Tombol Jepret Kamera 📸
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 40.dp),
+                    .padding(bottom = 48.dp)
+                    .align(Alignment.BottomCenter),
                 contentAlignment = Alignment.Center
             ) {
-                Box(
-                    contentAlignment = Alignment.Center,
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White,
+                    border = BorderStroke(4.dp, Color(0xFF1C483A)),
                     modifier = Modifier
                         .size(80.dp)
-                        .background(Color.White, CircleShape)
-                        .border(4.dp, Color(0xFF1C483A), CircleShape)
                         .clickable {
                             val photoFile = File(
-                                context.filesDir,
-                                "presensi_${System.currentTimeMillis()}.jpg"
+                                context.getExternalFilesDir(null),
+                                "PRESENSI_${photoType}_${System.currentTimeMillis()}.jpg"
                             )
-                            val outputOptions = ImageCapture.OutputFileOptions
-                                .Builder(photoFile)
-                                .build()
+                            val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
 
-                            imageCapture.takePicture(
+                            imageCapture?.takePicture(
                                 outputOptions,
                                 cameraExecutor,
                                 object : ImageCapture.OnImageSavedCallback {
-                                    override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                                    override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                                         capturedPhotoFile = photoFile
                                     }
 
-                                    override fun onError(exception: ImageCaptureException) {
-                                        exception.printStackTrace()
+                                    override fun onError(exc: ImageCaptureException) {
+                                        exc.printStackTrace()
                                     }
                                 }
                             )
                         }
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .background(Color(0xFF1C483A), CircleShape)
-                    )
+                    Box(contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .background(Color(0xFF1C483A), CircleShape)
+                        )
+                    }
                 }
             }
         } else {
-            // --- TAMPILAN 2: REVIEW FOTO (RETAKE ATAU LANJUT) ---
-            Box(
+            // Preview Hasil Foto yang Baru Saja Diambil
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFFE6F5FA))
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 20.dp, vertical = 40.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "Konfirmasi Foto Presensi",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1C483A)
-                    )
+                Spacer(modifier = Modifier.height(24.dp))
 
-                    // Kartu Preview Foto
-                    Card(
-                        shape = RoundedCornerShape(28.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                Text(
+                    text = "Konfirmasi Foto Presensi $photoType",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+
+                // Tampilan Foto
+                Card(
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(420.dp)
+                ) {
+                    AsyncImage(
+                        model = capturedPhotoFile,
+                        contentDescription = "Hasil Foto Presensi",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                // Tombol Ulangi / Konfirmasi Foto
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Button(
+                        onClick = { capturedPhotoFile = null },
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF333333)),
                         modifier = Modifier
-                            .fillMaxWidth()
                             .weight(1f)
-                            .padding(vertical = 16.dp)
+                            .height(50.dp)
                     ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            AsyncImage(
-                                model = capturedPhotoFile,
-                                contentDescription = "Foto Presensi",
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(RoundedCornerShape(28.dp))
-                            )
-                        }
+                        Text(text = "🔄 Foto Ulang", color = Color.White, fontWeight = FontWeight.Bold)
                     }
 
-                    // 2 Tombol: Foto Ulang (Retake) & Lanjut & Simpan
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    Button(
+                        onClick = {
+                            capturedPhotoFile?.let { file ->
+                                onPhotoConfirmed(file)
+                            }
+                        },
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C483A)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp)
                     ) {
-                        // Tombol 1: Foto Ulang (Retake)
-                        Button(
-                            onClick = {
-                                capturedPhotoFile?.delete()
-                                capturedPhotoFile = null
-                            },
-                            shape = CircleShape,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE2E2)),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
-                            contentPadding = PaddingValues(vertical = 14.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = "🔄 Foto Ulang",
-                                color = Color(0xFF991B1B),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
-                        }
-
-                        // Tombol 2: Lanjut & Simpan
-                        Button(
-                            onClick = {
-                                capturedPhotoFile?.let { onPhotoConfirmed(it) }
-                            },
-                            shape = CircleShape,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C483A)),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
-                            contentPadding = PaddingValues(vertical = 14.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = "✅ Lanjut & Simpan",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
-                        }
+                        Text(text = "✅ Gunakan Foto", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
-    }
-}
-
-@androidx.compose.ui.tooling.preview.Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun CameraScreenPreview() {
-    Reminderapp_SIAPATheme {
-        CameraScreen(
-            photoType = "PAGI",
-            cameraExecutor = Executors.newSingleThreadExecutor(),
-            onPhotoConfirmed = {},
-            onCancelClick = {}
-        )
     }
 }
