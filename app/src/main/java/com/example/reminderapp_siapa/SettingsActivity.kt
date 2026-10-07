@@ -190,12 +190,14 @@ fun SettingsScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 disabledContainerColor = Color(0xFFEDFAFD),
                                 disabledBorderColor = Color(0xFFC0E0D5),
-                                disabledTextColor = Color(0xFF1E353F),
-                                disabledLabelColor = Color(0xFF1E353F),
+                                disabledTextColor = Color(0xFF555555),
+                                disabledLabelColor = Color(0xFF555555),
                                 focusedContainerColor = Color(0xFFEDFAFD),
                                 unfocusedContainerColor = Color(0xFFEDFAFD),
                                 focusedBorderColor = Color(0xFF1C483A),
-                                unfocusedBorderColor = Color(0xFFC0E0D5)
+                                unfocusedBorderColor = Color(0xFFC0E0D5),
+                                focusedTextColor = Color.Black,
+                                unfocusedTextColor = Color.Black
                             ),
                             singleLine = true
                         )
@@ -219,12 +221,14 @@ fun SettingsScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 disabledContainerColor = Color(0xFFEDFAFD),
                                 disabledBorderColor = Color(0xFFC0E0D5),
-                                disabledTextColor = Color(0xFF1E353F),
-                                disabledLabelColor = Color(0xFF1E353F),
+                                disabledTextColor = Color(0xFF555555),
+                                disabledLabelColor = Color(0xFF555555),
                                 focusedContainerColor = Color(0xFFEDFAFD),
                                 unfocusedContainerColor = Color(0xFFEDFAFD),
                                 focusedBorderColor = Color(0xFF1C483A),
-                                unfocusedBorderColor = Color(0xFFC0E0D5)
+                                unfocusedBorderColor = Color(0xFFC0E0D5),
+                                focusedTextColor = Color.Black,
+                                unfocusedTextColor = Color.Black
                             ),
                             singleLine = true
                         )
