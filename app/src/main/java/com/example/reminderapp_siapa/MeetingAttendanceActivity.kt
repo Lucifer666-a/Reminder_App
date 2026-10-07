@@ -139,15 +139,21 @@ fun parseErrorMessage(response: Response<*>?): String {
         val errorBodyStr = response.errorBody()?.string()
         if (!errorBodyStr.isNullOrBlank()) {
             val jsonObject = Gson().fromJson(errorBodyStr, JsonObject::class.java)
-            if (jsonObject.has("message") && !jsonObject.get("message").isJsonNull) {
-                return jsonObject.get("message").asString
+            val rawMsg = when {
+                jsonObject.has("message") && !jsonObject.get("message").isJsonNull -> jsonObject.get("message").asString
+                jsonObject.has("error") && !jsonObject.get("error").isJsonNull -> jsonObject.get("error").asString
+                jsonObject.has("status") && !jsonObject.get("status").isJsonNull -> jsonObject.get("status").asString
+                else -> ""
             }
-            if (jsonObject.has("error") && !jsonObject.get("error").isJsonNull) {
-                return jsonObject.get("error").asString
+
+            val lowerMsg = rawMsg.lowercase()
+            if (lowerMsg.contains("pagi") || lowerMsg.contains("checkin") || lowerMsg.contains("masuk")) {
+                return "absen pagi baru tersedia pada jam 07:00 - 08:00"
             }
-            if (jsonObject.has("status") && !jsonObject.get("status").isJsonNull) {
-                return jsonObject.get("status").asString
+            if (lowerMsg.contains("sore") || lowerMsg.contains("cekout") || lowerMsg.contains("checkout") || lowerMsg.contains("pulang") || lowerMsg.contains("belum tersedia") || lowerMsg.contains("mulai")) {
+                return "absen sore baru tersedia pada jam 16:30 - 17:30"
             }
+            if (rawMsg.isNotBlank()) return rawMsg
         }
     } catch (e: Exception) {
         e.printStackTrace()
