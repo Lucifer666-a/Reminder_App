@@ -21,32 +21,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -90,31 +69,15 @@ class CameraActivity : ComponentActivity() {
                     photoType = photoType,
                     cameraExecutor = cameraExecutor,
                     onPhotoConfirmed = { photoFile ->
-                        // 1. Simpan foto ke PhotoDatabaseHelper
-                        val photoDb = PhotoDatabaseHelper(this)
-                        photoDb.savePhoto(
-                            filePath = photoFile.absolutePath,
-                            photoType = photoType
-                        )
-
-                        // 2. Tandai presensi di AttendanceDatabaseHelper lokal
-                        val attendanceDb = AttendanceDatabaseHelper(this)
-                        val today = LocalDate.now()
-                        val isPagi = photoType.contains("PAGI", ignoreCase = true)
-                        if (isPagi) {
-                            attendanceDb.markAttendancePagi(today)
-                        } else {
-                            attendanceDb.markAttendanceSore(today)
-                        }
-
-                        // 3. Kirim REST API ke server kantor (absen_harian.php) SETELAH foto diambil
                         val sharedPref = getSharedPreferences("app_user_prefs", MODE_PRIVATE)
                         val userId = sharedPref.getInt("KEY_USER_ID", 1)
+                        val isPagi = photoType.contains("PAGI", ignoreCase = true)
                         val aksiValue = if (isPagi) "checkin" else "checkout"
                         val sesiValue = if (isPagi) "pagi" else "sore"
 
                         lifecycleScope.launch {
                             try {
+                                // 1. Kirim REST API ke server kantor (absen_harian.php) TERLEBIH DAHULU untuk validasi waktu server
                                 val request = ApelAbsenRequest(
                                     userId = userId,
                                     aksi = aksiValue,
@@ -125,17 +88,33 @@ class CameraActivity : ComponentActivity() {
                                     ApiClient.apiService.submitAbsenHarian(request)
                                 }
                                 val body = response.body()
+
+                                // 2. HANYA jika server merespons sukses, simpan foto & SQLite lokal
                                 if (response.isSuccessful && body?.success != false) {
-                                    Toast.makeText(this@CameraActivity, "✅ ${body?.message ?: "Presensi & Foto Berhasil Disimpan!"}", Toast.LENGTH_LONG).show()
+                                    val photoDb = PhotoDatabaseHelper(this@CameraActivity)
+                                    photoDb.savePhoto(
+                                        filePath = photoFile.absolutePath,
+                                        photoType = photoType
+                                    )
+
+                                    val attendanceDb = AttendanceDatabaseHelper(this@CameraActivity)
+                                    val today = LocalDate.now()
+                                    if (isPagi) {
+                                        attendanceDb.markAttendancePagi(today)
+                                    } else {
+                                        attendanceDb.markAttendanceSore(today)
+                                    }
+
+                                    Toast.makeText(this@CameraActivity, "✅ ${body?.message ?: "Presensi & Foto Berhasil Dicatat Server!"}", Toast.LENGTH_LONG).show()
+                                    finish()
                                 } else {
                                     val errStr = parseErrorMessage(response)
-                                    Toast.makeText(this@CameraActivity, "📸 Foto Disimpan Lokal ($errStr)", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(this@CameraActivity, "❌ Ditolak Server: $errStr", Toast.LENGTH_LONG).show()
+                                    // Jangan simpan lokal & jangan tutup kamera agar user tahu gagal
                                 }
                             } catch (e: Exception) {
                                 e.printStackTrace()
-                                Toast.makeText(this@CameraActivity, "📸 Presensi & Foto Disimpan!", Toast.LENGTH_SHORT).show()
-                            } finally {
-                                finish()
+                                Toast.makeText(this@CameraActivity, "⚠️ Gagal Koneksi ke Server: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
                             }
                         }
                     },
