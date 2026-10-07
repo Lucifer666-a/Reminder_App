@@ -19,7 +19,7 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         val message = intent.getStringExtra("EXTRA_MESSAGE") ?: "Waktunya melakukan presensi/absen!"
         val notificationId = intent.getIntExtra("EXTRA_ID", 1001)
 
-        // Jika ini adalah Alarm Susulan / Follow-up (ID 999) -> Munculkan Notifikasi Saja Tanpa Alarm Berdering
+        // Jika ini adalah Alarm Susulan / Follow-up (ID 999) -> Set status menunggu & tampilkan notifikasi mengarah ke MainActivity
         if (notificationId == 999) {
             val sharedPref = context.getSharedPreferences("app_user_prefs", Context.MODE_PRIVATE)
             sharedPref.edit().putString("KEY_ATTENDANCE_STATUS_TODAY", "MENUNGGU_KONFIRMASI").apply()
@@ -104,9 +104,10 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             notificationManager.createNotificationChannel(channel)
         }
 
-        val targetIntent = if (isAlreadyAttended) {
+        // Jika ID 999 (Alarm Susulan) atau sudah absen, arahkan langsung ke MainActivity untuk memunculkan dialog konfirmasi
+        val targetIntent = if (notificationId == 999 || isAlreadyAttended) {
             Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
         } else {
             Intent(context, AlarmTriggerActivity::class.java).apply {
@@ -134,10 +135,10 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
             .setContentIntent(contentPendingIntent)
             .setAutoCancel(true)
 
-        if (!isAlreadyAttended) {
-            notificationBuilder.setFullScreenIntent(contentPendingIntent, true)
+        try {
+            notificationManager.notify(notificationId, notificationBuilder.build())
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
-
-        notificationManager.notify(notificationId, notificationBuilder.build())
     }
 }
