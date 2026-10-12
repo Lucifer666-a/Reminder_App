@@ -3,6 +3,7 @@ package com.example.reminderapp_siapa
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -35,10 +36,11 @@ import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-// Helper universal untuk mengekstrak dan memasukkan tanggal riwayat (harian & apel secara spesifik) ke SQLite
+// Helper universal untuk mengekstrak dan memasukkan tanggal riwayat (harian & apel dari server ke SQLite)
 fun syncServerStatusToDb(element: JsonElement?, db: AttendanceDatabaseHelper) {
     if (element == null) return
     try {
@@ -55,6 +57,9 @@ fun syncServerStatusToDb(element: JsonElement?, db: AttendanceDatabaseHelper) {
                 obj.has("absensi") -> "absensi"
                 obj.has("presensi_apel") -> "presensi_apel"
                 obj.has("apel") -> "apel"
+                obj.has("riwayat_apel") -> "riwayat_apel"
+                obj.has("apel_pagi") -> "apel_pagi"
+                obj.has("apel_sore") -> "apel_sore"
                 else -> null
             }
 
@@ -82,6 +87,19 @@ fun syncServerStatusToDb(element: JsonElement?, db: AttendanceDatabaseHelper) {
                     try { db.markApelSore(LocalDate.parse(it.asString.take(10))) } catch (e: Exception) { e.printStackTrace() }
                 }
             }
+            if (obj.has("apel_bulan_ini") && obj.get("apel_bulan_ini").isJsonObject) {
+                val apelObj = obj.getAsJsonObject("apel_bulan_ini")
+                if (apelObj.has("pagi") && apelObj.get("pagi").isJsonArray) {
+                    apelObj.getAsJsonArray("pagi").forEach {
+                        try { db.markApelPagi(LocalDate.parse(it.asString.take(10))) } catch (e: Exception) { e.printStackTrace() }
+                    }
+                }
+                if (apelObj.has("sore") && apelObj.get("sore").isJsonArray) {
+                    apelObj.getAsJsonArray("sore").forEach {
+                        try { db.markApelSore(LocalDate.parse(it.asString.take(10))) } catch (e: Exception) { e.printStackTrace() }
+                    }
+                }
+            }
         } else if (element.isJsonArray) {
             element.asJsonArray.forEach { item ->
                 if (item.isJsonObject) {
@@ -97,8 +115,9 @@ fun syncServerStatusToDb(element: JsonElement?, db: AttendanceDatabaseHelper) {
 
                     val jenis = itemObj.get("jenis")?.asString?.lowercase() ?: ""
                     val sesi = itemObj.get("sesi")?.asString?.lowercase() ?: ""
+                    val tipe = itemObj.get("tipe")?.asString?.lowercase() ?: ""
+                    val kategori = itemObj.get("kategori")?.asString?.lowercase() ?: ""
 
-                    // Jangan biarkan absen rapat (absen.php) tercampur ke absensi harian pagi/sore!
                     if (jenis.contains("rapat") || jenis.contains("acara") || sesi.contains("rapat")) {
                         return@forEach
                     }
@@ -108,16 +127,19 @@ fun syncServerStatusToDb(element: JsonElement?, db: AttendanceDatabaseHelper) {
                             val cleanDateStr = dateStr.trim().take(10)
                             val date = LocalDate.parse(cleanDateStr)
 
-                            val isSore = jenis.contains("sore") || jenis.contains("checkout") || jenis.contains("pulang") || sesi.contains("sore") || !checkout.isNullOrBlank()
-                            val isPagi = jenis.contains("pagi") || jenis.contains("checkin") || jenis.contains("masuk") || sesi.contains("pagi") || !checkin.isNullOrBlank()
+                            val isApel = jenis.contains("apel") || sesi.contains("apel") || tipe.contains("apel") || kategori.contains("apel")
+                            val isSore = jenis.contains("sore") || sesi.contains("sore") || sesi.contains("pulang") || jenis.contains("pulang")
 
-                            if (jenis.contains("apel")) {
-                                if (isSore) db.markApelSore(date) else db.markApelPagi(date)
+                            if (isApel) {
+                                if (isSore) {
+                                    db.markApelSore(date)
+                                } else {
+                                    db.markApelPagi(date)
+                                }
                             } else {
                                 if (isSore && checkout != null) {
                                     db.markAttendanceSore(date, checkout)
-                                }
-                                if (isPagi && checkin != null) {
+                                } else if (isPagi(jenis, sesi) && checkin != null) {
                                     db.markAttendancePagi(date, checkin)
                                 }
                             }
@@ -131,6 +153,34 @@ fun syncServerStatusToDb(element: JsonElement?, db: AttendanceDatabaseHelper) {
     }
 }
 
+fun isPagi(jenis: String, sesi: String): Boolean {
+    return jenis.contains("pagi") || jenis.contains("checkin") || jenis.contains("masuk") || sesi.contains("pagi") || sesi.contains("checkin")
+}
+
+fun getMondaysOfMonth(yearMonth: YearMonth): List<LocalDate> {
+    val list = mutableListOf<LocalDate>()
+    var date = yearMonth.atDay(1)
+    while (date.month == yearMonth.month) {
+        if (date.dayOfWeek == DayOfWeek.MONDAY) {
+            list.add(date)
+        }
+        date = date.plusDays(1)
+    }
+    return list
+}
+
+fun getFridaysOfMonth(yearMonth: YearMonth): List<LocalDate> {
+    val list = mutableListOf<LocalDate>()
+    var date = yearMonth.atDay(1)
+    while (date.month == yearMonth.month) {
+        if (date.dayOfWeek == DayOfWeek.FRIDAY) {
+            list.add(date)
+        }
+        date = date.plusDays(1)
+    }
+    return list
+}
+
 @Composable
 fun HomeScreen(
     userName: String = "Admin",
@@ -142,55 +192,13 @@ fun HomeScreen(
     val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
     val today = remember { LocalDate.now() }
+    val currentYearMonth = remember { YearMonth.now() }
 
     val sharedPref = remember { context.getSharedPreferences("app_user_prefs", Context.MODE_PRIVATE) }
     val userId = remember { sharedPref.getInt("KEY_USER_ID", 1) }
 
-    // Dialog konfirmasi "Sudah absen di web resmi?" saat pegawai kembali ke aplikasi
-    var showWaitingConfirmationDialog by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        val status = sharedPref.getString("KEY_ATTENDANCE_STATUS_TODAY", "")
-        if (status == "MENUNGGU_KONFIRMASI") {
-            showWaitingConfirmationDialog = true
-        }
-    }
-
-    if (showWaitingConfirmationDialog) {
-        AlertDialog(
-            onDismissRequest = { showWaitingConfirmationDialog = false },
-            title = { Text("Konfirmasi Absensi", fontWeight = FontWeight.Bold, color = Color(0xFF1C483A)) },
-            text = { Text("Sudah absen di web resmi?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showWaitingConfirmationDialog = false
-                        sharedPref.edit().remove("KEY_ATTENDANCE_STATUS_TODAY").apply()
-                        val session = sharedPref.getString("KEY_ATTENDANCE_SESSION", "pagi") ?: "pagi"
-                        val photoType = if (session == "pagi") "PAGI" else "SORE"
-                        val intent = Intent(context, CameraActivity::class.java).apply {
-                            putExtra("EXTRA_PHOTO_TYPE", photoType)
-                        }
-                        context.startActivity(intent)
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C483A)),
-                    shape = CircleShape
-                ) {
-                    Text("Sudah (Ambil Foto)")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showWaitingConfirmationDialog = false }
-                ) {
-                    Text("Belum / Tetap Menunggu", color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold)
-                }
-            },
-            shape = RoundedCornerShape(24.dp)
-        )
-    }
-
     var syncTrigger by remember { mutableStateOf(0) }
+    var rapatStatusText by remember { mutableStateOf("Memuat status rapat...") }
 
     // State untuk ticking countdown per detik
     var currentTime by remember { mutableStateOf(LocalDateTime.now()) }
@@ -204,7 +212,7 @@ fun HomeScreen(
         }
     }
 
-    // Narik riwayat & status harian dari server (GET /absen/api/user_status.php?user_id=X)
+    // Narik riwayat & status harian dari server (GET /absen/api/user_status.php & acara.php)
     LaunchedEffect(userId) {
         if (!isPreview) {
             withContext(Dispatchers.IO) {
@@ -223,6 +231,31 @@ fun HomeScreen(
                         }
                     } catch (e: Exception) {
                         e.printStackTrace()
+                    }
+
+                    // Cek Acara Rapat Aktif (GET /api/acara.php)
+                    try {
+                        val responseAcara = ApiClient.apiService.getAcara()
+                        if (responseAcara.isSuccessful) {
+                            val element = responseAcara.body()
+                            val eventName = parseEventFromJson(element)
+                            withContext(Dispatchers.Main) {
+                                if (!eventName.isNullOrBlank() && eventName.lowercase() != "null" && !eventName.contains("Tidak ada", ignoreCase = true)) {
+                                    rapatStatusText = "1 rapat sedang dibuka"
+                                } else {
+                                    rapatStatusText = "Tidak ada rapat yang sedang dibuka"
+                                }
+                            }
+                        } else {
+                            withContext(Dispatchers.Main) {
+                                rapatStatusText = "Tidak ada rapat yang sedang dibuka"
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        withContext(Dispatchers.Main) {
+                            rapatStatusText = "Tidak ada rapat yang sedang dibuka"
+                        }
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -253,109 +286,112 @@ fun HomeScreen(
     val isPagiAttended = pagiTime != null
     val isSoreAttended = soreTime != null
 
-    // Hitung ringkasan mingguan (Senin - Minggu minggu ini)
-    val monday = remember(today) { today.with(DayOfWeek.MONDAY) }
-    val sunday = remember(today) { today.with(DayOfWeek.SUNDAY) }
+    // Logika Status Time Window Masuk & Pulang
+    val nowTime = currentTime.toLocalTime()
 
-    val pagiWeeklyCount = remember(isPreview, today, currentTime.second, syncTrigger) {
-        if (isPreview) 4 else {
-            val db = AttendanceDatabaseHelper(context)
-            val dates = db.getAllPagiAttendanceDates()
-            dates.count { !it.isBefore(monday) && !it.isAfter(sunday) }
+    val pagiStatusText = when {
+        isPagiAttended -> "✓ Sudah"
+        nowTime.isBefore(LocalTime.of(7, 0)) -> "Belum"
+        nowTime.isAfter(LocalTime.of(8, 10)) -> "Tidak Absen"
+        else -> "Saatnya Absen"
+    }
+    val pagiStatusColor = when {
+        isPagiAttended -> Color(0xFF166534)
+        nowTime.isAfter(LocalTime.of(8, 10)) -> Color(0xFF991B1B)
+        else -> Color(0xFFD97706)
+    }
+
+    val soreStatusText = when {
+        isSoreAttended -> "✓ Sudah"
+        nowTime.isBefore(LocalTime.of(16, 15)) -> "Belum"
+        nowTime.isAfter(LocalTime.of(17, 30)) -> "Tidak Absen"
+        else -> "Saatnya Absen"
+    }
+    val soreStatusColor = when {
+        isSoreAttended -> Color(0xFF166534)
+        nowTime.isAfter(LocalTime.of(17, 30)) -> Color(0xFF991B1B)
+        else -> Color(0xFFD97706)
+    }
+
+    // Apel Dates
+    val apelPagiDates = remember(isPreview, syncTrigger) {
+        if (isPreview) emptySet() else AttendanceDatabaseHelper(context).getAllApelPagiDates()
+    }
+    val apelSoreDates = remember(isPreview, syncTrigger) {
+        if (isPreview) emptySet() else AttendanceDatabaseHelper(context).getAllApelSoreDates()
+    }
+
+    val mondays = remember(currentYearMonth) { getMondaysOfMonth(currentYearMonth) }
+    val fridays = remember(currentYearMonth) { getFridaysOfMonth(currentYearMonth) }
+
+    val totalApelCount = mondays.size + fridays.size
+    val attendedApelCount = mondays.count { apelPagiDates.contains(it) } + fridays.count { apelSoreDates.contains(it) }
+
+    // Dialog konfirmasi menunggu
+    var showWaitingConfirmationDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        val status = sharedPref.getString("KEY_ATTENDANCE_STATUS_TODAY", "")
+        if (status == "MENUNGGU_KONFIRMASI") {
+            showWaitingConfirmationDialog = true
         }
     }
 
-    val soreWeeklyCount = remember(isPreview, today, currentTime.second, syncTrigger) {
-        if (isPreview) 3 else {
-            val db = AttendanceDatabaseHelper(context)
-            val dates = db.getAllSoreAttendanceDates()
-            dates.count { !it.isBefore(monday) && !it.isAfter(sunday) }
-        }
+    if (showWaitingConfirmationDialog) {
+        AlertDialog(
+            onDismissRequest = { showWaitingConfirmationDialog = false },
+            containerColor = Color.White,
+            title = {
+                Text(
+                    text = "Konfirmasi Absensi",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Color.Black
+                )
+            },
+            text = {
+                Text(
+                    text = "Sudah absen di web resmi?",
+                    fontSize = 15.sp,
+                    color = Color.Black
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showWaitingConfirmationDialog = false
+                        sharedPref.edit().remove("KEY_ATTENDANCE_STATUS_TODAY").apply()
+                        val session = sharedPref.getString("KEY_ATTENDANCE_SESSION", "pagi") ?: "pagi"
+                        val photoType = if (session == "pagi") "PAGI" else "SORE"
+                        val intent = Intent(context, CameraActivity::class.java).apply {
+                            putExtra("EXTRA_PHOTO_TYPE", photoType)
+                        }
+                        context.startActivity(intent)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C483A)),
+                    shape = CircleShape
+                ) {
+                    Text("Sudah (Ambil Foto)", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showWaitingConfirmationDialog = false }
+                ) {
+                    Text("Belum / Tetap Menunggu", color = Color.Black, fontWeight = FontWeight.Medium)
+                }
+            },
+            shape = RoundedCornerShape(24.dp)
+        )
     }
 
-    // Cek apakah saat ini Hari Libur (Sabtu, Minggu, atau Jumat setelah jam/selesai absen sore 16:10)
-    val todayDayOfWeek = today.dayOfWeek
-    val isFridayAfterSore = (todayDayOfWeek == DayOfWeek.FRIDAY && (isSoreAttended || currentTime.toLocalTime().isAfter(LocalTime.of(16, 10))))
-    val isSaturday = (todayDayOfWeek == DayOfWeek.SATURDAY)
-    val isSundayDaytime = (todayDayOfWeek == DayOfWeek.SUNDAY && currentTime.hour < 18)
+    // Format Tanggal Header Ringkas
+    val headerDateStr = today.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", Locale.forLanguageTag("id-ID")))
+    val monthNameStr = today.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.forLanguageTag("id-ID")))
 
-    val isWeekendHoliday = isSaturday || isSundayDaytime || isFridayAfterSore
-
-    // Logika menentukan target absen selanjutnya & interval awal/akhir untuk progress (Dinamis berdasarkan Hari)
-    val (nextTitle, nextTargetTime, startTime) = remember(isPagiAttended, isSoreAttended, currentTime) {
-        val todayDate = currentTime.toLocalDate()
-        val tomorrowDate = todayDate.plusDays(1)
-
-        val pagiTimeTarget = if (todayDate.dayOfWeek == DayOfWeek.MONDAY) LocalTime.of(7, 45) else LocalTime.of(7, 55)
-        val pagiTarget = LocalDateTime.of(todayDate, pagiTimeTarget)
-        val pagiTitle = "Absen Masuk (${pagiTimeTarget.format(DateTimeFormatter.ofPattern("HH:mm"))} WIB)"
-
-        val soreTimeTarget = if (todayDate.dayOfWeek == DayOfWeek.FRIDAY) LocalTime.of(16, 10) else LocalTime.of(16, 30)
-        val soreTarget = LocalDateTime.of(todayDate, soreTimeTarget)
-        val soreTitle = "Absen Pulang (${soreTimeTarget.format(DateTimeFormatter.ofPattern("HH:mm"))} WIB)"
-
-        var nextWorkDate = tomorrowDate
-        while (nextWorkDate.dayOfWeek == DayOfWeek.SATURDAY || nextWorkDate.dayOfWeek == DayOfWeek.SUNDAY) {
-            nextWorkDate = nextWorkDate.plusDays(1)
-        }
-        val nextWorkPagiTime = if (nextWorkDate.dayOfWeek == DayOfWeek.MONDAY) LocalTime.of(7, 45) else LocalTime.of(7, 55)
-        val besokPagiTarget = LocalDateTime.of(nextWorkDate, nextWorkPagiTime)
-        val dayName = nextWorkDate.format(DateTimeFormatter.ofPattern("EEEE", Locale.forLanguageTag("id-ID")))
-        val besokPagiTitle = "Absen Masuk $dayName (${nextWorkPagiTime.format(DateTimeFormatter.ofPattern("HH:mm"))} WIB)"
-
-        if (!isPagiAttended) {
-            if (currentTime.isBefore(pagiTarget)) {
-                Triple(pagiTitle, pagiTarget, LocalDateTime.of(todayDate, LocalTime.of(0, 0)))
-            } else if (currentTime.isBefore(soreTarget)) {
-                Triple(soreTitle, soreTarget, pagiTarget)
-            } else {
-                Triple(besokPagiTitle, besokPagiTarget, soreTarget)
-            }
-        } else if (!isSoreAttended) {
-            if (currentTime.isBefore(soreTarget)) {
-                Triple(soreTitle, soreTarget, pagiTarget)
-            } else {
-                Triple(besokPagiTitle, besokPagiTarget, soreTarget)
-            }
-        } else {
-            Triple(besokPagiTitle, besokPagiTarget, soreTarget)
-        }
-    }
-
-    // Hitung Progress (0.0f - 1.0f)
-    val progressFloat = if (isPreview) {
-        0.65f
-    } else {
-        val totalIntervalSec = Duration.between(startTime, nextTargetTime).seconds.coerceAtLeast(1L)
-        val elapsedSec = Duration.between(startTime, currentTime).seconds.coerceIn(0L, totalIntervalSec)
-        (elapsedSec.toFloat() / totalIntervalSec.toFloat()).coerceIn(0f, 1f)
-    }
-
-    // Hitung format Teks Countdown Sisa Waktu
-    val countdownText = if (isPreview) {
-        "07 jam 45 menit 00 detik"
-    } else {
-        val duration = Duration.between(currentTime, nextTargetTime)
-        val totalSeconds = duration.seconds
-        if (totalSeconds <= 0) {
-            "Waktunya Absen!"
-        } else {
-            val hours = totalSeconds / 3600
-            val minutes = (totalSeconds % 3600) / 60
-            val seconds = totalSeconds % 60
-            String.format(Locale.getDefault(), "%02d jam %02d menit %02d detik", hours, minutes, seconds)
-        }
-    }
-
-    val dayOfWeek = today.dayOfWeek
-    val isWorkingDay = dayOfWeek != DayOfWeek.SATURDAY && dayOfWeek != DayOfWeek.SUNDAY
-    val statusLabel = if (isWorkingDay) "Hari Kerja" else "Hari Libur"
-    val statusColor = if (isWorkingDay) Color(0xFF22C55E) else Color(0xFFEF4444)
-
-    val dayNumberStr = today.dayOfMonth.toString()
-    val monthNameStr = remember(today) {
-        today.format(DateTimeFormatter.ofPattern("MMMM", Locale.forLanguageTag("id-ID")))
-    }
+    // Cek apakah jendela Apel sedang dibuka (Senin 07:45 - 08:30 atau Jumat 16:10 - 17:00)
+    val isApelPagiWindow = today.dayOfWeek == DayOfWeek.MONDAY && currentTime.toLocalTime().isAfter(LocalTime.of(7, 45)) && currentTime.toLocalTime().isBefore(LocalTime.of(8, 30)) && !apelPagiDates.contains(today)
+    val isApelSoreWindow = today.dayOfWeek == DayOfWeek.FRIDAY && currentTime.toLocalTime().isAfter(LocalTime.of(16, 10)) && currentTime.toLocalTime().isBefore(LocalTime.of(17, 0)) && !apelSoreDates.contains(today)
 
     Box(
         modifier = Modifier
@@ -366,9 +402,112 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 1. HEADER RINGKAS
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = headerDateStr,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF555555)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Halo, $userName",
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(42.dp)
+                        .background(Color.White, CircleShape)
+                        .clickable { onSettingsClick() }
+                ) {
+                    Text(text = "⚙️", fontSize = 18.sp)
+                }
+            }
+
+            // 2. KARTU "SEDANG DIBUKA" (Hanya muncul saat jendela apel aktif)
+            if (isApelPagiWindow || isApelSoreWindow) {
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFAEB)),
+                    border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Sedang dibuka",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF92400E)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (isApelPagiWindow) "Apel Pagi Senin" else "Apel Sore Jumat",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF78350F)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (isApelPagiWindow) "07:45 - 08:30 WIB" else "16:10 - 17:00 WIB",
+                                fontSize = 12.sp,
+                                color = Color(0xFFB45309)
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                val intent = Intent(context, RegularAttendanceActivity::class.java).apply {
+                                    putExtra("EXTRA_DATE", today.toString())
+                                    putExtra("EXTRA_TYPE", if (isApelPagiWindow) "APEL_PAGI" else "APEL_SORE")
+                                }
+                                context.startActivity(intent)
+                            },
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C483A)),
+                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+                        ) {
+                            Text(
+                                text = "Isi Sekarang",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 3. KARTU "APEL OKTOBER 2026" (Chip Tanggal Senin & Jumat)
             Card(
-                shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
+                shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -376,353 +515,273 @@ fun HomeScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 24.dp, end = 24.dp, top = 72.dp, bottom = 36.dp)
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = "Halo,",
-                                fontSize = 32.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-                            val displayName = if (userName.length > 8) "${userName.take(8)}..." else userName
-                            Text(
-                                text = displayName,
-                                fontSize = 32.sp,
-                                fontWeight = FontWeight.Light,
-                                color = Color.Black,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                        Text(
+                            text = "Apel $monthNameStr",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                        Text(
+                            text = "$attendedApelCount dari $totalApelCount hadir",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF555555)
+                        )
+                    }
 
-                        Spacer(modifier = Modifier.width(8.dp))
+                    // Apel Pagi (Senin)
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Apel pagi, setiap Senin",
+                            fontSize = 13.sp,
+                            color = Color(0xFF7A97A0)
+                        )
 
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 4.dp)
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(
-                                text = statusLabel,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = statusColor
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(statusColor, CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .background(Color(0xFFE6F5FA), CircleShape)
-                                    .clickable { onSettingsClick() }
-                            ) {
-                                Text(text = "⚙️", fontSize = 16.sp)
+                            mondays.forEach { date ->
+                                val isAttended = apelPagiDates.contains(date)
+                                val isToday = date == today
+                                val isPast = date.isBefore(today)
+
+                                val bg: Color
+                                val fg: Color
+                                val label: String
+                                val clickAction: () -> Unit
+
+                                when {
+                                    isAttended -> {
+                                        bg = Color(0xFFDCFCE7)
+                                        fg = Color(0xFF166534)
+                                        label = "✓ Sudah"
+                                        clickAction = { Toast.makeText(context, "Anda sudah absen", Toast.LENGTH_SHORT).show() }
+                                    }
+                                    isToday -> {
+                                        val nowTime = currentTime.toLocalTime()
+                                        val isApelPagiTimeWindow = nowTime.isAfter(LocalTime.of(7, 30)) && nowTime.isBefore(LocalTime.of(8, 15))
+                                        if (isApelPagiTimeWindow) {
+                                            bg = Color(0xFFF1F5F9)
+                                            fg = Color(0xFF64748B)
+                                            label = "Dibuka"
+                                            clickAction = {
+                                                val intent = Intent(context, RegularAttendanceActivity::class.java).apply {
+                                                    putExtra("EXTRA_DATE", today.toString())
+                                                    putExtra("EXTRA_TYPE", "APEL_PAGI")
+                                                }
+                                                context.startActivity(intent)
+                                            }
+                                        } else {
+                                            bg = Color(0xFFF1F5F9)
+                                            fg = Color(0xFF64748B)
+                                            label = "Dibuka"
+                                            clickAction = { Toast.makeText(context, "Absen apel pagi hanya bisa dilakukan pada jam 07:30 - 08:15", Toast.LENGTH_SHORT).show() }
+                                        }
+                                    }
+                                    isPast -> {
+                                        bg = Color(0xFFFEE2E2)
+                                        fg = Color(0xFF991B1B)
+                                        label = "✕ Lewat"
+                                        clickAction = { Toast.makeText(context, "Apel sudah lewat", Toast.LENGTH_SHORT).show() }
+                                    }
+                                    else -> {
+                                        bg = Color(0xFFF1F5F9)
+                                        fg = Color(0xFF64748B)
+                                        label = "Belum"
+                                        clickAction = { Toast.makeText(context, "Belum waktunya apel", Toast.LENGTH_SHORT).show() }
+                                    }
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = bg,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(64.dp)
+                                        .clickable { clickAction() }
+                                ) {
+                                    Column(
+                                        modifier = Modifier.fillMaxSize(),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = date.dayOfMonth.toString(),
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = fg
+                                        )
+                                        Text(
+                                            text = label,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = fg
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(48.dp))
+                    // Apel Sore (Jumat)
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Apel sore, setiap Jumat",
+                            fontSize = 13.sp,
+                            color = Color(0xFF7A97A0)
+                        )
 
-                    Text(
-                        text = dayNumberStr,
-                        fontSize = 76.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black,
-                        lineHeight = 76.sp
-                    )
-                    Text(
-                        text = monthNameStr,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = Color.Black
-                    )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            fridays.forEach { date ->
+                                val isAttended = apelSoreDates.contains(date)
+                                val isToday = date == today
+                                val isPast = date.isBefore(today)
+
+                                val bg: Color
+                                val fg: Color
+                                val label: String
+                                val clickAction: () -> Unit
+
+                                when {
+                                    isAttended -> {
+                                        bg = Color(0xFFDCFCE7)
+                                        fg = Color(0xFF166534)
+                                        label = "✓ Sudah"
+                                        clickAction = { Toast.makeText(context, "Anda sudah absen", Toast.LENGTH_SHORT).show() }
+                                    }
+                                    isToday -> {
+                                        val nowTime = currentTime.toLocalTime()
+                                        val isApelSoreTimeWindow = nowTime.isAfter(LocalTime.of(16, 15)) && nowTime.isBefore(LocalTime.of(17, 30))
+                                        if (isApelSoreTimeWindow) {
+                                            bg = Color(0xFFF1F5F9)
+                                            fg = Color(0xFF64748B)
+                                            label = "Dibuka"
+                                            clickAction = {
+                                                val intent = Intent(context, RegularAttendanceActivity::class.java).apply {
+                                                    putExtra("EXTRA_DATE", today.toString())
+                                                    putExtra("EXTRA_TYPE", "APEL_SORE")
+                                                }
+                                                context.startActivity(intent)
+                                            }
+                                        } else {
+                                            bg = Color(0xFFF1F5F9)
+                                            fg = Color(0xFF64748B)
+                                            label = "Dibuka"
+                                            clickAction = { Toast.makeText(context, "Absen apel sore baru bisa dilakukan pada jam 16:15 - 17:30", Toast.LENGTH_SHORT).show() }
+                                        }
+                                    }
+                                    isPast -> {
+                                        bg = Color(0xFFFEE2E2)
+                                        fg = Color(0xFF991B1B)
+                                        label = "✕ Lewat"
+                                        clickAction = { Toast.makeText(context, "Apel sudah lewat", Toast.LENGTH_SHORT).show() }
+                                    }
+                                    else -> {
+                                        bg = Color(0xFFF1F5F9)
+                                        fg = Color(0xFF64748B)
+                                        label = "Belum"
+                                        clickAction = { Toast.makeText(context, "Belum waktunya apel", Toast.LENGTH_SHORT).show() }
+                                    }
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = bg,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(64.dp)
+                                        .clickable { clickAction() }
+                                ) {
+                                    Column(
+                                        modifier = Modifier.fillMaxSize(),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = date.dayOfMonth.toString(),
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = fg
+                                        )
+                                        Text(
+                                            text = label,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = fg
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onLookPresentClick() }
+                            .padding(top = 4.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Text(
+                            text = "Lihat detail dan foto ›",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF1C483A)
+                        )
+                    }
                 }
             }
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            // 4. KARTU "RAPAT" (Dinamis dari GET /api/acara.php)
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Card(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF98D882)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp)
-                    ) {
-                        Text(
-                            text = "Status Absen",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1B4D2E)
-                        )
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        val displayTitle = if (isWeekendHoliday) "Hari Libur (Weekend)" else nextTitle
-                        val displayCountdownText = if (isWeekendHoliday) "Selamat menikmati hari liburmu! 🎉" else countdownText
-                        val displayProgress = if (isWeekendHoliday) 1.0f else progressFloat
-
-                        Text(
-                            text = displayTitle,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF1B4D2E).copy(alpha = 0.85f)
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text(
-                            text = displayCountdownText,
-                            fontSize = if (isWeekendHoliday) 18.sp else 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F381D)
-                        )
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        LinearProgressIndicator(
-                            progress = { displayProgress },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(6.dp)
-                                .clip(CircleShape),
-                            color = Color(0xFF1B4D2E),
-                            trackColor = Color.White.copy(alpha = 0.5f)
-                        )
-                    }
-                }
-
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Card(
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C483A)),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(260.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Riwayat Absen",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFA3C2B5)
-                            )
-
-                            Column(
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Column {
-                                    Text(
-                                        text = "Absen Masuk",
-                                        fontSize = 11.sp,
-                                        color = Color(0xFFA3C2B5)
-                                    )
-                                    Text(
-                                        text = "$pagiWeeklyCount / 5 Hari",
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
-                                }
-
-                                Column {
-                                    Text(
-                                        text = "Absen Pulang",
-                                        fontSize = 11.sp,
-                                        color = Color(0xFFA3C2B5)
-                                    )
-                                    Text(
-                                        text = "$soreWeeklyCount / 5 Hari",
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
-                                }
-                            }
-
-                            Surface(
-                                shape = CircleShape,
-                                color = Color.White.copy(alpha = 0.1f)
-                            ) {
-                                Text(
-                                    text = "Minggu Ini",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color.White,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Card(
-                            shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0A9376)),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(124.dp)
-                                .clickable { onJumpWebClick() }
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(14.dp),
-                                verticalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Absen Masuk",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White.copy(alpha = 0.9f)
-                                )
-                                Text(
-                                    text = pagiTime ?: "--:-- WIB",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color.White.copy(alpha = 0.2f)
-                                ) {
-                                    Text(
-                                        text = if (isPagiAttended) "✅ Sudah" else "⏳ Belum",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        Card(
-                            shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF18A86C)),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(124.dp)
-                                .clickable { onJumpWebClick() }
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(14.dp),
-                                verticalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Absen Pulang",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White.copy(alpha = 0.9f)
-                                )
-                                Text(
-                                    text = soreTime ?: "--:-- WIB",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color.White.copy(alpha = 0.2f)
-                                ) {
-                                    Text(
-                                        text = if (isSoreAttended) "✅ Sudah" else "⏳ Belum",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Button(
-                            onClick = { onLookPresentClick() },
-                            shape = CircleShape,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                            border = BorderStroke(1.dp, Color(0xFFC0E0D5)),
-                            contentPadding = PaddingValues(vertical = 12.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = "Absen Apel",
-                                color = Color(0xFF1C483A),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
-                        }
-
-                        Button(
-                            onClick = { onMeetingAttendanceClick() },
-                            shape = CircleShape,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C483A)),
-                            contentPadding = PaddingValues(vertical = 12.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = "✍Absen Rapat",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
-                        }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Rapat",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = rapatStatusText,
+                            fontSize = 13.sp,
+                            color = if (rapatStatusText.contains("sedang dibuka")) Color(0xFF1C483A) else Color(0xFF7A97A0),
+                            fontWeight = FontWeight.Medium
+                        )
                     }
 
                     Button(
-                        onClick = { onJumpWebClick() },
+                        onClick = { onMeetingAttendanceClick() },
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C483A)),
-                        contentPadding = PaddingValues(vertical = 12.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
                     ) {
                         Text(
-                            text = "🌐 Menuju Web Resmi",
+                            text = "Absen Rapat",
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
@@ -730,6 +789,134 @@ fun HomeScreen(
                     }
                 }
             }
+
+            // 5. KARTU "PRESENSI KERJA HARI INI"
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "Presensi kerja hari ini",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Kotak Masuk
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = if (isPagiAttended) Color(0xFFDCFCE7) else Color(0xFFF1F5F9),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(115.dp)
+                                .clickable {
+                                    if (isPagiAttended) {
+                                        Toast.makeText(context, "Owner / Anda sudah absen pagi", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        onJumpWebClick()
+                                    }
+                                }
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(14.dp),
+                                verticalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Masuk",
+                                    fontSize = 12.sp,
+                                    color = if (isPagiAttended) Color(0xFF166534) else Color(0xFF64748B),
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = pagiTime ?: "--:--",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isPagiAttended) Color(0xFF166534) else Color.Black
+                                )
+                                Text(
+                                    text = pagiStatusText,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = pagiStatusColor
+                                )
+                            }
+                        }
+
+                        // Kotak Pulang
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = if (isSoreAttended) Color(0xFFDCFCE7) else Color(0xFFF1F5F9),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(115.dp)
+                                .clickable {
+                                    if (isSoreAttended) {
+                                        Toast.makeText(context, "Anda sudah absen sore", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        onJumpWebClick()
+                                    }
+                                }
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(14.dp),
+                                verticalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Pulang",
+                                    fontSize = 12.sp,
+                                    color = if (isSoreAttended) Color(0xFF166534) else Color(0xFF64748B),
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = soreTime ?: "--:--",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSoreAttended) Color(0xFF166534) else Color.Black
+                                )
+                                Text(
+                                    text = soreStatusText,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = soreStatusColor
+                                )
+                            }
+                        }
+                    }
+
+                    Button(
+                        onClick = { onJumpWebClick() },
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C483A)),
+                        contentPadding = PaddingValues(vertical = 14.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Buka Web Absensi Resmi",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

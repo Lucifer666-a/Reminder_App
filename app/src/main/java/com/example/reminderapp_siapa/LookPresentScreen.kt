@@ -1,7 +1,5 @@
 package com.example.reminderapp_siapa
 
-import android.content.Intent
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -46,7 +44,6 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
 import java.util.Locale
 
 @Composable
@@ -61,9 +58,6 @@ fun LookPresentScreen(
     // State bulan yang sedang dipilih (Dinamis dengan Calendar API java.time)
     var currentYearMonth by remember { mutableStateOf(YearMonth.now()) }
     val today = remember { LocalDate.now() }
-
-    // State untuk expand / collapse detail apel
-    var isApelDetailExpanded by remember { mutableStateOf(false) }
 
     // Ambil data tanggal kehadiran Pagi dan Sore secara terpisah dari SQLite
     val pagiDates = remember(currentYearMonth, isPreview) {
@@ -96,29 +90,6 @@ fun LookPresentScreen(
         }
     }
 
-    // Daftar semua Hari Senin (Apel Pagi) dan Hari Jumat (Apel Sore) pada bulan yang dipilih
-    val mondaysInMonth = remember(currentYearMonth) {
-        val list = mutableListOf<LocalDate>()
-        for (day in 1..currentYearMonth.lengthOfMonth()) {
-            val date = currentYearMonth.atDay(day)
-            if (date.dayOfWeek == DayOfWeek.MONDAY) {
-                list.add(date)
-            }
-        }
-        list
-    }
-
-    val fridaysInMonth = remember(currentYearMonth) {
-        val list = mutableListOf<LocalDate>()
-        for (day in 1..currentYearMonth.lengthOfMonth()) {
-            val date = currentYearMonth.atDay(day)
-            if (date.dayOfWeek == DayOfWeek.FRIDAY) {
-                list.add(date)
-            }
-        }
-        list
-    }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -127,18 +98,17 @@ fun LookPresentScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp)
-                .padding(top = 52.dp, bottom = 24.dp)
                 .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Spacer(modifier = Modifier.height(28.dp))
+
             // Header Top Bar
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 20.dp)
+                modifier = Modifier.fillMaxWidth()
             ) {
-                // Tombol Kembali (Back)
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -146,37 +116,35 @@ fun LookPresentScreen(
                         .background(Color.White, CircleShape)
                         .clickable { onBackClick() }
                 ) {
+                    Text(text = "←", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
                     Text(
-                        text = "←",
-                        fontSize = 22.sp,
+                        text = "Look Present",
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.Black
+                        color = Color(0xFF1C483A)
+                    )
+                    Text(
+                        text = "Kalender Kehadiran & Rekap Bulanan",
+                        fontSize = 12.sp,
+                        color = Color(0xFF555555)
                     )
                 }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Text(
-                    text = "Daftar Hadir",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
             }
 
-            // Month Navigation Bar (Navigasi Pindah Bulan)
+            // Card Navigasi Bulan & Tahun
             Card(
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF1C483A)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -191,10 +159,10 @@ fun LookPresentScreen(
                         Text("<", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
 
-                    // Nama Bulan & Tahun (dinamis, misal: "Februari 2025")
-                    val monthName = currentYearMonth.month.getDisplayName(TextStyle.FULL, Locale.forLanguageTag("id-ID"))
+                    // Nama Bulan & Tahun (Format Indonesia)
+                    val monthYearStr = currentYearMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.forLanguageTag("id-ID")))
                     Text(
-                        text = "$monthName ${currentYearMonth.year}",
+                        text = monthYearStr,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -250,7 +218,7 @@ fun LookPresentScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Tombol Galeri Foto Presensi (Ganti dari Download PDF)
+            // Tombol Galeri Foto Presensi
             Button(
                 onClick = { onGalleryClick() },
                 shape = CircleShape,
@@ -269,145 +237,7 @@ fun LookPresentScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Kartu Expandable "See More" Detail Absen Apel Pagi & Sore
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1C483A)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { isApelDetailExpanded = !isApelDetailExpanded }
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Detail Absen Apel Bulan Ini",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-
-                        Text(
-                            text = if (isApelDetailExpanded) "Sembunyikan ▲" else "See More ▼",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF39FF14)
-                        )
-                    }
-
-                    if (isApelDetailExpanded) {
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Detail Apel Pagi (Senin)
-                        Text(
-                            text = "Apel Pagi (Senin)",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFA3C2B5)
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        mondaysInMonth.forEach { date ->
-                            val dateFormatted = date.format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("id-ID")))
-                            val time = if (isPreview) {
-                                if (date.dayOfMonth <= 15) "07:30 WIB" else null
-                            } else {
-                                remember(date) { AttendanceDatabaseHelper(context).getApelPagiTime(date) }
-                            }
-                            val isAttended = time != null
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 3.dp)
-                                    .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
-                                    .clickable {
-                                        if (date == today) {
-                                            val intent = Intent(context, RegularAttendanceActivity::class.java).apply {
-                                                putExtra("EXTRA_DATE", date.toString())
-                                                putExtra("EXTRA_TYPE", "APEL_PAGI")
-                                            }
-                                            context.startActivity(intent)
-                                        } else {
-                                            Toast.makeText(context, "Tidak dapat mengubah presensi tanggal $dateFormatted (Mencegah manipulasi data)", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("Senin, $dateFormatted", fontSize = 12.sp, color = Color.White)
-                                Text(
-                                    text = if (isAttended) "✅ $time" else "❌ Belum",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isAttended) Color(0xFF39FF14) else Color(0xFFEF4444)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // Detail Apel Sore (Jumat)
-                        Text(
-                            text = "Apel Sore (Jumat)",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFA3C2B5)
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        fridaysInMonth.forEach { date ->
-                            val dateFormatted = date.format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("id-ID")))
-                            val time = if (isPreview) {
-                                if (date.dayOfMonth <= 10) "16:00 WIB" else null
-                            } else {
-                                remember(date) { AttendanceDatabaseHelper(context).getApelSoreTime(date) }
-                            }
-                            val isAttended = time != null
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 3.dp)
-                                    .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
-                                    .clickable {
-                                        if (date == today) {
-                                            val intent = Intent(context, RegularAttendanceActivity::class.java).apply {
-                                                putExtra("EXTRA_DATE", date.toString())
-                                                putExtra("EXTRA_TYPE", "APEL_SORE")
-                                            }
-                                            context.startActivity(intent)
-                                        } else {
-                                            Toast.makeText(context, "Tidak dapat mengubah presensi tanggal $dateFormatted (Mencegah manipulasi data)", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("Jumat, $dateFormatted", fontSize = 12.sp, color = Color.White)
-                                Text(
-                                    text = if (isAttended) "✅ $time" else "❌ Belum",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isAttended) Color(0xFF39FF14) else Color(0xFFEF4444)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -420,11 +250,8 @@ fun MonthCalendarTable(
     soreDates: Set<LocalDate>,
     modifier: Modifier = Modifier
 ) {
-    // Dihitung otomatis dengan API java.time
     val daysInMonth = yearMonth.lengthOfMonth()
     val firstDayOfMonth = yearMonth.atDay(1)
-    
-    // DayOfWeek: SUNDAY = 7, MONDAY = 1 ... -> Ubah agar Minggu berada di posisi paling awal (indeks 0)
     val firstDayOfWeekIndex = firstDayOfMonth.dayOfWeek.value % 7
 
     val dayHeaders = listOf("Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab")
@@ -447,96 +274,75 @@ fun MonthCalendarTable(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Header Nama Hari (Min, Sen, Sel, Rab, Kam, Jum, Sab)
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                horizontalArrangement = Arrangement.SpaceAround
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 dayHeaders.forEach { header ->
                     Text(
                         text = header,
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFFA3C2B5),
-                        modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
 
-            // Baris Grid Tanggal per Bulan (7 Kolom Per Baris)
-            val rows = dayList.chunked(7)
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                rows.forEach { rowDays ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceAround
-                    ) {
-                        for (i in 0 until 7) {
-                            val date = rowDays.getOrNull(i)
-                            if (date != null) {
-                                val hasPagi = date in pagiDates
-                                val hasSore = date in soreDates
-                                val attendanceCount = (if (hasPagi) 1 else 0) + (if (hasSore) 1 else 0)
+            Spacer(modifier = Modifier.height(12.dp))
 
-                                val isToday = date == today
-                                val isWeekend = date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY
+            val weeks = dayList.chunked(7)
+            weeks.forEach { week ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    for (i in 0 until 7) {
+                        val date = if (i < week.size) week[i] else null
+                        if (date != null) {
+                            val isPagi = pagiDates.contains(date)
+                            val isSore = soreDates.contains(date)
+                            val count = (if (isPagi) 1 else 0) + (if (isSore) 1 else 0)
+                            val isToday = date == today
 
-                                val bgColor = when {
-                                    attendanceCount == 2 -> Color(0xFF18A86C) // Hijau Pekat (Lengkap 2x Absen)
-                                    attendanceCount == 1 -> Color(0xFF4ADE80) // Hijau Muda (Baru 1x Absen)
-                                    isToday -> Color(0xFFFFC107)               // Kuning Gold untuk Hari Ini
-                                    isWeekend -> Color(0xFF224237)             // Warna Pudar untuk Weekend
-                                    else -> Color(0xFF2B5948)                  // Dark Green Muted untuk Hari Kerja biasa
-                                }
+                            val bg = when {
+                                count == 2 -> Color(0xFF18A86C) // 2x Absen (Dark Green)
+                                count == 1 -> Color(0xFF4ADE80) // 1x Absen (Light Green)
+                                isToday -> Color(0xFFFFC107)    // Hari Ini (Yellow)
+                                else -> Color(0xFF14382D)       // Kosong
+                            }
 
-                                val textColor = when {
-                                    attendanceCount == 1 -> Color(0xFF0F381D) // Teks Gelap Kontras di atas Hijau Muda
-                                    isWeekend && attendanceCount == 0 && !isToday -> Color(0xFF8AA898) // Teks Pudar untuk Weekend
-                                    else -> Color.White
-                                }
+                            val textColor = if (isToday && count == 0) Color.Black else Color.White
 
-                                val shape = if (isToday) CircleShape else RoundedCornerShape(8.dp)
-
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .aspectRatio(1f)
-                                        .padding(2.dp)
-                                        .background(bgColor, shape)
-                                ) {
-                                    Text(
-                                        text = date.dayOfMonth.toString(),
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = textColor
-                                    )
-                                }
-                            } else {
-                                // Kotak kosong penyeimbang posisi hari
-                                Spacer(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .aspectRatio(1f)
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                   .weight(1f)
+                                   .aspectRatio(1f)
+                                   .padding(2.dp)
+                                   .background(bg, RoundedCornerShape(10.dp))
+                            ) {
+                                Text(
+                                    text = date.dayOfMonth.toString(),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = textColor
                                 )
                             }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .aspectRatio(1f)
+                                    .padding(2.dp)
+                            )
                         }
                     }
                 }
             }
         }
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun LookPresentScreenPreview() {
-    Reminderapp_SIAPATheme {
-        LookPresentScreen()
     }
 }
