@@ -1,34 +1,15 @@
 package com.example.reminderapp_siapa
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,6 +21,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.reminderapp_siapa.ui.theme.Reminderapp_SIAPATheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
@@ -59,8 +42,30 @@ fun LookPresentScreen(
     var currentYearMonth by remember { mutableStateOf(YearMonth.now()) }
     val today = remember { LocalDate.now() }
 
-    // Ambil data tanggal kehadiran Pagi dan Sore secara terpisah dari SQLite
-    val pagiDates = remember(currentYearMonth, isPreview) {
+    val sharedPref = remember { context.getSharedPreferences("app_user_prefs", Context.MODE_PRIVATE) }
+    val userId = remember { sharedPref.getInt("KEY_USER_ID", 1) }
+
+    var syncTrigger by remember { mutableStateOf(0) }
+
+    // Sinkronkan status & riwayat kehadiran dari server saat LookPresentScreen dibuka
+    LaunchedEffect(userId) {
+        if (!isPreview) {
+            withContext(Dispatchers.IO) {
+                try {
+                    AttendanceSyncHelper.syncWithServer(context, userId)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
+                    withContext(Dispatchers.Main) {
+                        syncTrigger++
+                    }
+                }
+            }
+        }
+    }
+
+    // Ambil data tanggal kehadiran Pagi dan Sore (termasuk Apel) secara terpisah dari SQLite dengan key syncTrigger
+    val pagiDates = remember(currentYearMonth, isPreview, syncTrigger) {
         if (isPreview) {
             val list = mutableSetOf<LocalDate>()
             for (day in 1..currentYearMonth.lengthOfMonth()) {
@@ -71,11 +76,11 @@ fun LookPresentScreen(
             list
         } else {
             val db = AttendanceDatabaseHelper(context)
-            db.getAllPagiAttendanceDates()
+            db.getAllPagiAttendanceDates() + db.getAllApelPagiDates()
         }
     }
 
-    val soreDates = remember(currentYearMonth, isPreview) {
+    val soreDates = remember(currentYearMonth, isPreview, syncTrigger) {
         if (isPreview) {
             val list = mutableSetOf<LocalDate>()
             for (day in 1..currentYearMonth.lengthOfMonth()) {
@@ -86,7 +91,7 @@ fun LookPresentScreen(
             list
         } else {
             val db = AttendanceDatabaseHelper(context)
-            db.getAllSoreAttendanceDates()
+            db.getAllSoreAttendanceDates() + db.getAllApelSoreDates()
         }
     }
 
@@ -315,15 +320,16 @@ fun MonthCalendarTable(
                                 else -> Color(0xFF14382D)       // Kosong
                             }
 
+                            val shape = if (isToday) CircleShape else RoundedCornerShape(10.dp)
                             val textColor = if (isToday && count == 0) Color.Black else Color.White
 
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                   .weight(1f)
-                                   .aspectRatio(1f)
-                                   .padding(2.dp)
-                                   .background(bg, RoundedCornerShape(10.dp))
+                                    .weight(1f)
+                                    .aspectRatio(1f)
+                                    .padding(2.dp)
+                                    .background(bg, shape)
                             ) {
                                 Text(
                                     text = date.dayOfMonth.toString(),

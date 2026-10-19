@@ -410,7 +410,8 @@ fun SettingsScreen(
                     // Tombol Logout / Keluar Akun
                     OutlinedButton(
                         onClick = {
-                            // Hapus semua cache SQLite lokal agar riwayat akun sebelumnya bersih
+                            // Hapus token autentikasi & semua cache SQLite lokal
+                            TokenStore.clear()
                             AttendanceDatabaseHelper(context).clearAllData()
 
                             sharedPref.edit()

@@ -13,7 +13,10 @@ data class AuthResponse(
     val message: String?,
     @SerializedName("user_id") val userId: Int?,
     val nama: String?,
-    val jabatan: String?
+    val jabatan: String?,
+    @SerializedName("access_token") val accessToken: String?,
+    @SerializedName("refresh_token") val refreshToken: String?,
+    val token: String?
 )
 
 // 2. Model Status & Riwayat Harian User
@@ -28,12 +31,14 @@ data class UserStatusResponse(
     @SerializedName("sore_dates") val soreDates: List<String>?
 )
 
-// 3. Model Presensi Apel & Harian ("aksi": "checkin" / "checkout")
+// 3. Model Presensi Apel & Harian dengan Dukungan Foto Base64
 data class ApelAbsenRequest(
     @SerializedName("user_id") val userId: Int,
     val aksi: String, // "checkin" atau "checkout"
     val sesi: String? = null, // "pagi" atau "sore"
-    @SerializedName("tanda_tangan") val tandaTangan: String // "data:image/png;base64,..."
+    val foto: String? = null,
+    @SerializedName("foto_absen") val fotoAbsen: String? = null,
+    @SerializedName("tanda_tangan") val tandaTangan: String? = null
 )
 
 // 4. Model Presensi Rapat / Acara
@@ -41,7 +46,7 @@ data class AbsenRequest(
     @SerializedName("user_id") val userId: Int,
     val pin: String,
     @SerializedName("acara_id") val acaraId: Int?,
-    @SerializedName("tanda_tangan") val tandaTangan: String // "data:image/png;base64,..."
+    @SerializedName("tanda_tangan") val tandaTangan: String
 )
 
 data class AbsenResponse(

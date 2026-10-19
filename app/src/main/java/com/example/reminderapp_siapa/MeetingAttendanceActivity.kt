@@ -161,11 +161,36 @@ fun parseErrorMessage(response: Response<*>?): String {
     return "Gagal (Error ${response.code()})"
 }
 
-// Helper untuk mengubah coretan Canvas menjadi Bitmap, lalu dikonversi ke Base64
-fun createSignatureBitmap(strokes: List<List<Offset>>, color: Color, width: Int = 600, height: Int = 200): Bitmap {
+// Helper untuk mengubah coretan Canvas menjadi Bitmap dengan autoscaling agar tidak terpotong
+fun createSignatureBitmap(
+    strokes: List<List<Offset>>,
+    color: Color,
+    width: Int = 600,
+    height: Int = 200
+): Bitmap {
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
     canvas.drawColor(android.graphics.Color.WHITE)
+
+    val allPoints = strokes.flatten()
+    if (allPoints.isEmpty()) return bitmap
+
+    // 1. Cari kotak yang membungkus seluruh coretan (koordinat layar)
+    val minX = allPoints.minOf { it.x }
+    val maxX = allPoints.maxOf { it.x }
+    val minY = allPoints.minOf { it.y }
+    val maxY = allPoints.maxOf { it.y }
+    val srcW = (maxX - minX).coerceAtLeast(1f)
+    val srcH = (maxY - minY).coerceAtLeast(1f)
+
+    // 2. Skala supaya muat utuh dengan margin, perbandingan tetap (tidak gepeng)
+    val margin = 12f
+    val scale = minOf((width - 2 * margin) / srcW, (height - 2 * margin) / srcH)
+        .coerceAtMost(2f)
+
+    // 3. Geser supaya tepat di tengah gambar
+    val offsetX = (width - srcW * scale) / 2f - minX * scale
+    val offsetY = (height - srcH * scale) / 2f - minY * scale
 
     val paint = Paint().apply {
         isAntiAlias = true
@@ -175,17 +200,25 @@ fun createSignatureBitmap(strokes: List<List<Offset>>, color: Color, width: Int 
             (color.green * 255).toInt(),
             (color.blue * 255).toInt()
         )
-        strokeWidth = 6f
+        strokeWidth = (6f * scale).coerceIn(3f, 10f)
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
 
     strokes.forEach { stroke ->
+        if (stroke.size == 1) {
+            val p = stroke[0]
+            canvas.drawPoint(p.x * scale + offsetX, p.y * scale + offsetY, paint)
+        }
         for (i in 0 until stroke.size - 1) {
             val start = stroke[i]
             val end = stroke[i + 1]
-            canvas.drawLine(start.x, start.y, end.x, end.y, paint)
+            canvas.drawLine(
+                start.x * scale + offsetX, start.y * scale + offsetY,
+                end.x * scale + offsetX, end.y * scale + offsetY,
+                paint
+            )
         }
     }
 

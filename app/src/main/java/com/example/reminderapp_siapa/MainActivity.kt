@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ApiClient.init(this)
         
         // Meminta Izin Notifikasi untuk Android 13+ (API 33+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -290,6 +291,11 @@ fun LoginScreen(
                                     val resUserId = body?.userId ?: 1
                                     val resNama = body?.nama ?: username.trim()
                                     val resJabatan = body?.jabatan ?: "Pegawai"
+
+                                    val access = body?.accessToken ?: body?.token ?: "dummy_access_token"
+                                    val refresh = body?.refreshToken ?: body?.token ?: "dummy_refresh_token"
+                                    TokenStore.save(access, refresh)
+
                                     onLoginSuccess(resUserId, resNama, resJabatan)
                                 } else {
                                     val errMessage = parseErrorMessage(response)

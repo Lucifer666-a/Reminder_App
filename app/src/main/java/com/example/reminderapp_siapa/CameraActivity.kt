@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.util.Base64
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -75,14 +76,19 @@ class CameraActivity : ComponentActivity() {
                         val aksiValue = if (isPagi) "checkin" else "checkout"
                         val sesiValue = if (isPagi) "pagi" else "sore"
 
+                        val bytes = photoFile.readBytes()
+                        val photoBase64 = "data:image/jpeg;base64," + Base64.encodeToString(bytes, Base64.DEFAULT).replace("\n", "")
+
                         lifecycleScope.launch {
                             try {
-                                // 1. Kirim REST API ke server kantor (absen_harian.php) TERLEBIH DAHULU untuk validasi waktu server
+                                // 1. Kirim REST API ke server kantor (absen_harian.php) TERLEBIH DAHULU membawa foto Base64
                                 val request = ApelAbsenRequest(
                                     userId = userId,
                                     aksi = aksiValue,
                                     sesi = sesiValue,
-                                    tandaTangan = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+                                    foto = photoBase64,
+                                    fotoAbsen = photoBase64,
+                                    tandaTangan = photoBase64
                                 )
                                 val response = withContext(Dispatchers.IO) {
                                     ApiClient.apiService.submitAbsenHarian(request)
