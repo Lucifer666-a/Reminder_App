@@ -285,12 +285,7 @@ fun MeetingAttendanceScreen(
     var pin by remember { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
 
-    // Dua pilihan warna: Hitam dan Merah
-    val colorOptions = listOf(
-        Color.Black,
-        Color(0xFFD32F2F) // Merah
-    )
-    var selectedColor by remember { mutableStateOf(colorOptions[0]) }
+    val selectedColor = Color.Black
 
     // Data tanda tangan berbasis titik dengan batasan area box
     val strokes = remember { mutableStateListOf<List<Offset>>() }
@@ -508,46 +503,6 @@ fun MeetingAttendanceScreen(
                                         text = "Tandatangani di sini menggunakan jari Anda",
                                         fontSize = 13.sp,
                                         color = Color(0xFF999999)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // Pemilihan Warna Tanda Tangan (Hitam & Merah)
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "Pilih Warna Tanda Tangan",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1C483A)
-                        )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            colorOptions.forEach { color ->
-                                val isSelected = selectedColor == color
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    modifier = Modifier.clickable { selectedColor = color }
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .background(color, CircleShape)
-                                            .clip(CircleShape)
-                                            .then(
-                                                if (isSelected) Modifier.border(3.dp, Color(0xFF1C483A), CircleShape)
-                                                else Modifier
-                                            )
-                                    )
-                                    Text(
-                                        text = if (color == Color.Black) "Hitam" else "Merah",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = Color(0xFF1E353F)
                                     )
                                 }
                             }
