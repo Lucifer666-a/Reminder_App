@@ -10,9 +10,9 @@ import java.util.Calendar
 object ReminderScheduler {
 
     /**
-     * Menjadwalkan pengingat alarm dinamis berdasarkan hari (Senin vs Hari Biasa, Jumat vs Hari Biasa).
-     * - Absen Pagi: Senin = 07:45, Selasa - Jumat = 07:55
-     * - Absen Sore: Jumat = 16:10, Senin - Kamis = 16:30
+     * Menjadwalkan pengingat alarm dinamis berdasarkan hari:
+     * - Absen Pagi (101): Jumat Pagi = 07:25, Hari Lain (Senin-Kamis) = 07:55
+     * - Absen Sore (102): Setiap Hari Kerja = 16:30 (Jam 4:30 Sore)
      */
     fun scheduleReminder(
         context: Context,
@@ -40,9 +40,9 @@ object ReminderScheduler {
 
         // Tentukan jam target awal berdasarkan hari ini
         val (targetHour, targetMinute) = if (reminderId == 101) {
-            if (currentDay == Calendar.MONDAY) Pair(7, 45) else Pair(7, 55)
+            if (currentDay == Calendar.FRIDAY) Pair(7, 25) else Pair(7, 55)
         } else {
-            if (currentDay == Calendar.FRIDAY) Pair(16, 10) else Pair(16, 30)
+            Pair(16, 30) // Jam 4:30 sore setiap hari kerja
         }
 
         val calendar = Calendar.getInstance().apply {
@@ -59,9 +59,9 @@ object ReminderScheduler {
 
                 val newDay = get(Calendar.DAY_OF_WEEK)
                 val (newH, newM) = if (reminderId == 101) {
-                    if (newDay == Calendar.MONDAY) Pair(7, 45) else Pair(7, 55)
+                    if (newDay == Calendar.FRIDAY) Pair(7, 25) else Pair(7, 55)
                 } else {
-                    if (newDay == Calendar.FRIDAY) Pair(16, 10) else Pair(16, 30)
+                    Pair(16, 30)
                 }
                 set(Calendar.HOUR_OF_DAY, newH)
                 set(Calendar.MINUTE, newM)
@@ -86,8 +86,8 @@ object ReminderScheduler {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
         val intent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
-            putExtra("EXTRA_TITLE", "Konfirmasi Absen Susulan")
-            putExtra("EXTRA_MESSAGE", "Sudah absen? Konfirmasi di sini")
+            putExtra("EXTRA_TITLE", "Konfirmasi Absen")
+            putExtra("EXTRA_MESSAGE", "Sudah absen di web resmi? Ketuk untuk konfirmasi.")
             putExtra("EXTRA_ID", 999)
         }
 
