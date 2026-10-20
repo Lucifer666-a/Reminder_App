@@ -283,24 +283,32 @@ fun RegularAttendanceScreen(
 
                     // Kolom Tanda Tangan (Signature Pad dengan batasan area)
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Kolom Tanda Tangan (Tulis dengan jari)",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1C483A)
-                            )
-                            TextButton(onClick = {
+                        Text(
+                            text = "Kolom Tanda Tangan (Tulis dengan jari)",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1C483A)
+                        )
+
+                        Button(
+                            onClick = {
                                 strokes.clear()
                                 currentStroke.clear()
-                            }) {
-                                Text("Hapus", color = Color(0xFFD32F2F), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE2E2)),
+                            contentPadding = PaddingValues(vertical = 8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Hapus Tanda Tangan",
+                                color = Color(0xFF991B1B),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
+
+                        Spacer(modifier = Modifier.height(2.dp))
 
                         Box(
                             modifier = Modifier
